@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Nov 19 2014 15:23:15 GMT-0700 (MST) -->
+    <!--  Build Date: Wed Nov 19 2014 15:44:41 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Nov 19 2014 15:23:15 GMT-0700 (MST)";
-        var CHECKSUM = 817719518;
+        var APP_BUILD_DATE = "Wed Nov 19 2014 15:44:41 GMT-0700 (MST)";
+        var CHECKSUM = 1626859798;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -15,6 +15,45 @@
     <script type="text/javascript">
         Rally.onReady(function() {
              
+Ext.define("CumulativeFlowCalculator", {
+     extend: "Rally.data.lookback.calculator.TimeSeriesCalculator",
+     runCalculation: function (snapshots) {
+         var calculatorConfig = this._prepareCalculatorConfig(),
+             seriesConfig = this._buildSeriesConfig(calculatorConfig);
+
+         var calculator = this.prepareCalculator(calculatorConfig);
+         calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+         
+         return this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+     },
+     getMetrics: function () {
+         return [
+             {
+                 "field": "PlanEstimate",
+                 "as": "Defined",
+                 "display": "area",
+                 "f": "filteredSum",
+                 "filterField": "ScheduleState",
+                 "filterValues": ["Defined"], 
+                 "fillColor":'#7cb5ec'
+             },{
+                 "field": "PlanEstimate",
+                 "as": "InProgress",
+                 "display": "area",
+                 "f": "filteredSum",
+                 "filterField": "ScheduleState",
+                 "filterValues": ["InProgress"], 
+                 "fillColor":'#434348'
+             },{
+             }];
+     },
+     getDerivedFieldsOnInput: function(){
+         return [];
+     },
+     getDerivedFieldsAfterSummary: function(){
+         return [];
+     }
+ });
 /**
  * A link that pops up a version dialog box
  */
@@ -149,6 +188,65 @@ Ext.define('CustomApp', {
     ],
     launch: function() {
         this.down('#message_box').update(this.getContext().getUser());
+        
+        Ext.create('CumulativeFlowCalculator',{});
+        
+        this.down('#display_box').add({
+            xtype: 'rallychart',
+            itemId: 'rally-chart',
+            calculatorType: 'CumulativeFlowCalculator',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getStoreConfig(),
+            calculatorConfig: {
+                startDate: Rally.util.DateTime.toIsoString(Rally.util.DateTime.add(new Date(), 'day', -60),true),
+                endDate: Rally.util.DateTime.toIsoString(new Date(),true)
+            },
+            listeners: {
+                scope: this,
+                chartRendered: function(){
+                    this.down('#export-button').setDisabled(false);
+                }
+            },
+            chartConfig: {
+                chart: {
+                    zoomType: 'xy'
+                },
+                title: {
+                    text: 'Cumulative Flow by Tags'
+                },
+                xAxis: {
+                    tickmarkPlacement: 'on',
+                    tickInterval: 30,
+                    title: {
+                        text: ''
+                    }
+                },
+                yAxis: [
+                    {
+                        title: {
+                            text: 'Points'
+                        }
+                    }
+                ]
+            }
+        });
+    },
+    _getStoreConfig: function(){
+        return {
+            find: {
+                _TypeHierarchy: 'HierarchicalRequirement',
+                Children: null,
+                _ValidFrom: Rally.util.DateTime.toIsoString(Rally.util.DateTime.add(new Date(), 'day', -60),true)
+             },
+            fetch: ['ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom'],
+            hydrate: ['ScheduleState','_TypeHierarchy'],
+            compress: true,
+            sort: {
+                _ValidFrom: 1
+            },
+            context: this.getContext().getDataContext(),
+            limit: Infinity
+        };
     }
 });
             
