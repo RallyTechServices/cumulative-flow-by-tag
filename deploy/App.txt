@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Nov 19 2014 15:44:41 GMT-0700 (MST) -->
+    <!--  Build Date: Thu Nov 20 2014 17:47:27 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Nov 19 2014 15:44:41 GMT-0700 (MST)";
-        var CHECKSUM = 1626859798;
+        var APP_BUILD_DATE = "Thu Nov 20 2014 17:47:27 GMT-0700 (MST)";
+        var CHECKSUM = 3774122413;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -17,6 +17,10 @@
              
 Ext.define("CumulativeFlowCalculator", {
      extend: "Rally.data.lookback.calculator.TimeSeriesCalculator",
+     config: {
+         stateFieldName: 'ScheduleState',
+         stateFieldValues: ['Defined', 'In-Progress', 'Completed', 'Accepted', 'Finished']
+     },
      runCalculation: function (snapshots) {
          var calculatorConfig = this._prepareCalculatorConfig(),
              seriesConfig = this._buildSeriesConfig(calculatorConfig);
@@ -24,28 +28,85 @@ Ext.define("CumulativeFlowCalculator", {
          var calculator = this.prepareCalculator(calculatorConfig);
          calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
          
-         return this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+         var calcs = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+
+         //Make the series stacked 
+//         Ext.each(calcs.series, function(s){
+//             console.log(s);
+//             if (Ext.Array.contains(this.getStateFieldValues(),s['name'])){
+//                 //Only stack if this is a state.  Do not stack other lines
+//                 s['stack'] = 1;
+//             }
+//         },this);
+
+         var actual_series = this._getActualSeries(calcs);
+         calcs.series.push(actual_series);
+         console.log(calcs);
+         //Format the categories by week 
+         var new_categories = _.map(calcs.categories, function(c){
+             var week = Rally.util.DateTime.format(new Date(c), 'W');
+             return 'WW' + week.toString(); 
+         });
+         calcs.categories = new_categories;
+         return calcs;
      },
-     getMetrics: function () {
-         return [
-             {
-                 "field": "PlanEstimate",
-                 "as": "Defined",
-                 "display": "area",
-                 "f": "filteredSum",
-                 "filterField": "ScheduleState",
-                 "filterValues": ["Defined"], 
-                 "fillColor":'#7cb5ec'
-             },{
-                 "field": "PlanEstimate",
-                 "as": "InProgress",
-                 "display": "area",
-                 "f": "filteredSum",
-                 "filterField": "ScheduleState",
-                 "filterValues": ["InProgress"], 
-                 "fillColor":'#434348'
-             },{
-             }];
+     _getActualSeries: function(calcs){
+
+         var data = [];
+         var num_velocity_periods = Rally.util.DateTime.getDifference(new Date(calcs.categories[calcs.categories.length-1]), new Date(calcs.categories[0]),'week')/2;
+         console.log('weeks',num_velocity_periods);
+         var velocity = 0;
+         
+         var firstAcceptedi = 0;
+         Ext.each(calcs.series, function(s){
+             if (s.name == 'Accepted'){
+                 for (var i=0; i<s.data.length; i++){
+                     if (data[i] > 0){
+                         firstAcceptedi = i;
+                     }
+                     data[i] = null;
+                 }
+                 data[firstAcceptedi] = 0;
+                 data[s.data.length-1] = s.data[s.data.length-1]
+                 velocity = Math.round(data[s.data.length-1]/num_velocity_periods * 100)/100;  
+             }
+         });
+
+         var series = {
+                 name: Ext.String.format('Actual (velocity: {0})',velocity),
+                 type: 'line',
+                 data: data,
+                 color: '',
+                 dashStyle: 'Solid'
+         };
+         return series;
+     },
+     constructor: function(config) {
+         this.initConfig(config);
+         this.callParent(arguments);
+     },
+     getMetrics: function() {
+         var metrics = [];
+         Ext.each(this.getStateFieldValues(), function(stateFieldValue){
+             metrics.push({
+                 field: 'PlanEstimate',
+                 as: stateFieldValue,
+                 f: 'filteredSum',
+                 filterField: this.getStateFieldName(),
+                 filterValues: [stateFieldValue],
+                 display: 'area'
+             });  
+         }, this);
+         
+         metrics.push({
+             field: 'PlanEstimate',
+             as: 'TotalPoints',
+             f: 'sum',
+             display: 'line'
+         })
+
+         return metrics; 
+         
      },
      getDerivedFieldsOnInput: function(){
          return [];
@@ -53,6 +114,8 @@ Ext.define("CumulativeFlowCalculator", {
      getDerivedFieldsAfterSummary: function(){
          return [];
      }
+
+
  });
 /**
  * A link that pops up a version dialog box
@@ -182,61 +245,148 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     items: [
-        {xtype:'container',itemId:'message_box',tpl:'Hello, <tpl>{_refObjectName}</tpl>'},
+        {xtype:'container',itemId:'control_box',layout: {type:'vbox'}},
         {xtype:'container',itemId:'display_box'},
         {xtype:'tsinfolink'}
     ],
+    portfolioItemTypes: ['PortfolioItem/Feature','PortfolioItem/Initiative','PortfolioItem/Theme'],
     launch: function() {
-        this.down('#message_box').update(this.getContext().getUser());
-        
         Ext.create('CumulativeFlowCalculator',{});
+        var min_dropdown_width = 300; 
+        var label_width = 100;
+        this.down('#control_box').add({
+            xtype: 'rallytagpicker',
+            itemId: 'tag-picker',
+            alwaysExpanded: false,
+            minWidth: min_dropdown_width,
+            fieldLabel: 'Tags',
+            labelWidth: label_width,
+            labelAlign: 'right',
+            padding: 10
+        });
         
-        this.down('#display_box').add({
-            xtype: 'rallychart',
-            itemId: 'rally-chart',
-            calculatorType: 'CumulativeFlowCalculator',
-            storeType: 'Rally.data.lookback.SnapshotStore',
-            storeConfig: this._getStoreConfig(),
-            calculatorConfig: {
-                startDate: Rally.util.DateTime.toIsoString(Rally.util.DateTime.add(new Date(), 'day', -60),true),
-                endDate: Rally.util.DateTime.toIsoString(new Date(),true)
+//        this.down('#control_box').add({
+//            xtype: 'rallyportfolioitemtypecombobox',
+//            itemId: 'type-picker',
+//            fieldLabel: 'PortfolioItem Type',
+//            minWidth: min_dropdown_width,
+//            labelWidth: label_width,
+//            labelAlign: 'right',
+//            padding: 10
+//                
+//        });
+        
+        this.down('#control_box').add({
+            xtype: 'rallybutton',
+            text: 'Run',
+            margin: '10 10 10 115',
+            scope: this,
+            handler: this._createChart
+        });
+        
+    },
+    _createChart: function(){
+        this.logger.log('_createChart');
+        var tags = this._getTagObjectIDs();  
+        
+        this._getAssociatedPortfolioItems(tags).then({
+            scope:this,
+            success: function(portfolioItemIds){
+                this.down('#display_box').add({
+                    xtype: 'rallychart',
+                    itemId: 'rally-chart',
+                    calculatorType: 'CumulativeFlowCalculator',
+                    storeType: 'Rally.data.lookback.SnapshotStore',
+                    storeConfig: this._getStoreConfig(portfolioItemIds),
+                    calculatorConfig: {
+                        stateFieldName: 'ScheduleState',
+                        stateFieldValues: ['Defined','In-Progress','Completed','Accepted']
+                    },
+                    chartConfig: this._getChartConfig()
+                });
             },
-            listeners: {
-                scope: this,
-                chartRendered: function(){
-                    this.down('#export-button').setDisabled(false);
-                }
-            },
-            chartConfig: {
-                chart: {
-                    zoomType: 'xy'
-                },
-                title: {
-                    text: 'Cumulative Flow by Tags'
-                },
-                xAxis: {
-                    tickmarkPlacement: 'on',
-                    tickInterval: 30,
-                    title: {
-                        text: ''
-                    }
-                },
-                yAxis: [
-                    {
-                        title: {
-                            text: 'Points'
-                        }
-                    }
-                ]
+            failure: function(error, success){
+                alert(error);
             }
         });
+        
+
     },
-    _getStoreConfig: function(){
+    _getChartConfig: function(){
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Cumulative Flow by Tags'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 7,
+            },
+            yAxis: [
+                {
+                    title: {
+                        text: 'Points'
+                    }
+                }
+            ],
+            plotOptions: {
+                series: {
+                    marker: { enabled: false },
+                    stacking: 'normal'
+                },
+                line: {connectNulls: true}
+            }
+        };
+        
+    },
+    _getAssociatedPortfolioItems: function(tags){
+        this.logger.log('_getAssociatedPortfolioItems', tags);
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Ext.create('Rally.data.lookback.SnapshotStore', {
+            listeners: {
+                load: function(store, data, success) {
+                    if (success) {
+                        //Now parse through the data to get the portfolio item object ids that we want
+                        var portfolio_item_ids = [];
+                        Ext.each(data, function(d){
+                            portfolio_item_ids.push(d.get('ObjectID'));
+                        },this);
+                        deferred.resolve(portfolio_item_ids);
+                    } else {
+                        deferred.reject('Error getting associated Portfolio Items', success);
+                    }
+                }
+            },
+            autoLoad: true,
+            fetch: ['ObjectID', 'Name','_ItemHierarchy','_TypeHierarchy'],
+            find: {
+                _TypeHierarchy: {$in: this.portfolioItemTypes},
+                Tags: {$in: tags},
+                __At: "current"  //Note: This gets only items that have these tags today
+            }
+        });
+        return deferred; 
+    },
+
+    _getTagObjectIDs: function(){
+        var tag_objects = this.down('#tag-picker').getValue(); 
+        var tags = [];
+        Ext.each(tag_objects, function(to){
+            tags.push(to.get('ObjectID'));
+        },this);
+        return tags; 
+    },
+    _getStoreConfig: function(portfolioItemObjectIds){
+        this.logger.log('_getStoreConfig', portfolioItemObjectIds);
         return {
             find: {
                 _TypeHierarchy: 'HierarchicalRequirement',
                 Children: null,
-                _ValidFrom: Rally.util.DateTime.toIsoString(Rally.util.DateTime.add(new Date(), 'day', -60),true)
+                _ProjectHierarchy: this.getContext().getProject().ObjectID,
+                _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
             fetch: ['ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom'],
             hydrate: ['ScheduleState','_TypeHierarchy'],

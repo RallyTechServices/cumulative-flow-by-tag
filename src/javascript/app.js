@@ -60,28 +60,7 @@ Ext.define('CustomApp', {
                         stateFieldName: 'ScheduleState',
                         stateFieldValues: ['Defined','In-Progress','Completed','Accepted']
                     },
-                    chartConfig: {
-                        chart: {
-                            zoomType: 'xy'
-                        },
-                        title: {
-                            text: 'Cumulative Flow by Tags'
-                        },
-                        xAxis: {
-                            tickmarkPlacement: 'on',
-                            tickInterval: 7,
-                            title: {
-                                text: 'WW'
-                            }
-                        },
-                        yAxis: [
-                            {
-                                title: {
-                                    text: 'Points'
-                                }
-                            }
-                        ]
-                    }
+                    chartConfig: this._getChartConfig()
                 });
             },
             failure: function(error, success){
@@ -90,6 +69,35 @@ Ext.define('CustomApp', {
         });
         
 
+    },
+    _getChartConfig: function(){
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Cumulative Flow by Tags'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 7,
+            },
+            yAxis: [
+                {
+                    title: {
+                        text: 'Points'
+                    }
+                }
+            ],
+            plotOptions: {
+                series: {
+                    marker: { enabled: false },
+                    stacking: 'normal'
+                },
+                line: {connectNulls: true}
+            }
+        };
+        
     },
     _getAssociatedPortfolioItems: function(tags){
         this.logger.log('_getAssociatedPortfolioItems', tags);
