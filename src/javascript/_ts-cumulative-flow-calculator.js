@@ -18,7 +18,6 @@ Ext.define("CumulativeFlowCalculator", {
          this.callParent(arguments);
      },
      runCalculation: function (snapshots) {
-         console.log('runCalculation',this.config);
          var calculatorConfig = this._prepareCalculatorConfig(),
              seriesConfig = this._buildSeriesConfig(calculatorConfig);
 
@@ -49,10 +48,8 @@ Ext.define("CumulativeFlowCalculator", {
          });
 
          calcs.categories = new_categories;
-         console.log('calcs',calcs);
          
          Ext.each(calcs.series, function(s){
-             console.log(s.name);
              if (s.name == 'TotalEstimated'){
                  s.stack = 'total';
                  s.zIndex = 0;
@@ -61,6 +58,8 @@ Ext.define("CumulativeFlowCalculator", {
                  s.zIndex = 1;
              }
          });
+
+//         console.log('calcs',calcs);
          return calcs;
      },
      getPercentCompleted: function(){
@@ -101,7 +100,7 @@ Ext.define("CumulativeFlowCalculator", {
         var arbitrary_points = this.totalPoints - slope * arbitrary_delta_days;
         data[arbitrary_index] = arbitrary_points;
         
-        console.log('endDate', endDate, 'startDate',startDate, 'delta days', delta_days, 'delta_weeks', delta_weeks);
+ //       console.log('endDate', endDate, 'startDate',startDate, 'delta days', delta_days, 'delta_weeks', delta_weeks);
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
@@ -111,7 +110,6 @@ Ext.define("CumulativeFlowCalculator", {
                  dashStyle: 'Solid',
                  stack: 'remaining'
          };
-         console.log('remaining',series);
          return series;
      },
      _getIdealSeries: function(calcs){
@@ -151,7 +149,6 @@ Ext.define("CumulativeFlowCalculator", {
                  dashStyle: 'Solid',
                  stack: 'ideal'
          };
-         console.log('idealseries',series);
          return series;
      },
      _getActualSeries: function(calcs){
@@ -183,7 +180,6 @@ Ext.define("CumulativeFlowCalculator", {
 
          
          Ext.each(calcs.series, function(s){
-             console.log(s.name);
              var idx = Ext.Array.indexOf(states, s.name, 0);
              if (idx >= 0 && firstInState[idx] <0){
                  for (var i=0; i<s.data.length; i++){
@@ -225,9 +221,6 @@ Ext.define("CumulativeFlowCalculator", {
                  dashStyle: 'Solid',
                  stack: 'actual'
          };
-         console.log(series);
-         
-         
          return series;
      },
      getMetrics: function() {
@@ -290,7 +283,6 @@ Ext.define("CumulativeFlowCalculator", {
          return 0;
      },
      getTotalEstimated: function(snapshot,index,metrics,seriesData){
-         console.log('getTotalEstimates',snapshot,index,metrics,seriesData);
          return Math.max(seriesData[index].DerivedPreliminaryEstimate,seriesData[index].DerivedLeafStoryPlanEstimateTotal);
      },
      calcTotalPoints: function(calcs){
@@ -304,27 +296,10 @@ Ext.define("CumulativeFlowCalculator", {
          var series = null; 
          Ext.each(calcs.series, function(s){
              var re = new RegExp(seriesName,"i");
-             console.log(re,s.name,re.test(s.name));
              if (re.test(s.name)){
                  series = s;  
              }
          });
          return series; 
      }
-
-//     getDerivedTotalEstimate: function(snapshot){
-//         console.log(this);
-//         console.log(snapshot._TypeHierarchy,this.lowestLevelPortfolioItemType,snapshot.State,snapshot.LeafStoryPlanEstimateTotal);
-//         if (Ext.Array.contains(snapshot._TypeHierarchy, 'PortfolioItem/Feature')){
-//             if (snapshot.State == this.portfolioItemStateDone){
-//                 return Number(snapshot.LeafStoryPlanEstimateTotal);
-//             } else {
-//                 var pe = -6;  //this._translatePreliminaryEstimate(snapshot.PreliminaryEstimate);
-//                 var lspet = Number(snapshot.LeafStoryPlanEstimateTotal);
-//                 return Math.max(lspet,pe);
-//             }
-//         }
-//         return 0;
-//     }
-
  });
