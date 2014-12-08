@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 08 2014 09:59:52 GMT-0700 (MST) -->
+    <!--  Build Date: Mon Dec 08 2014 11:45:26 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 08 2014 09:59:52 GMT-0700 (MST)";
-        var CHECKSUM = 19723552789;
+        var APP_BUILD_DATE = "Mon Dec 08 2014 11:45:26 GMT-0700 (MST)";
+        var CHECKSUM = 20000222442;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -61,7 +61,7 @@ Ext.define("CumulativeFlowCalculator", {
          var new_categories = _.map(calcs.categories, function(c){
              var week = Rally.util.DateTime.format(new Date(c), 'W');
              var year = Rally.util.DateTime.format(new Date(c),'Y');
-             return year.toString() + 'WW' + week.toString(); 
+             return 'WW' + week.toString(); 
          });
 
          calcs.categories = new_categories;
@@ -112,7 +112,7 @@ Ext.define("CumulativeFlowCalculator", {
         var delta_weeks = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate), 'week');
         
         var slope = delta_points/delta_days;  
-        var velocity = delta_points/delta_weeks;
+        var velocity = Math.round(delta_points/delta_weeks);
 
         var arbitrary_index = Math.round(this.actualIndex/2);
         var arbitrary_date = calcs.categories[arbitrary_index];
@@ -507,10 +507,21 @@ Ext.define('CustomApp', {
                 xtype: 'rallytagpicker',
                 itemId: 'tag-picker',
                 alwaysExpanded: false,
+                autoExpand: false, 
                 minWidth: min_dropdown_width + label_width,
                 fieldLabel: 'Tags',
                 labelWidth: label_width,
                 labelAlign: 'right',
+                storeConfig: {
+                    sorters: [{
+                        property: 'Name',
+                        direction: 'ASC'
+                    }],
+                    filters: [{
+                        property: 'Archived',
+                        value: false
+                    }]
+                },
                 listeners: {
                     scope: this,
                     selectionchange: this._updateTagLabel
@@ -622,10 +633,12 @@ Ext.define('CustomApp', {
         Ext.create('Rally.ui.dialog.SolrArtifactChooserDialog', {
             artifactTypes: ['portfolioitem'],
             autoShow: true,
-            height: 250,
+            height: 400,
+            resizable: true,
             title: 'Choose Portfolio Items',
             storeConfig: {
-                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate']
+                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate'],
+                pageSize: 200
             },
             listeners: {
                 artifactchosen: function(ac, selectedRecord){

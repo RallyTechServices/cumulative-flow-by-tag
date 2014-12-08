@@ -44,7 +44,7 @@ Ext.define("CumulativeFlowCalculator", {
          var new_categories = _.map(calcs.categories, function(c){
              var week = Rally.util.DateTime.format(new Date(c), 'W');
              var year = Rally.util.DateTime.format(new Date(c),'Y');
-             return year.toString() + 'WW' + week.toString(); 
+             return 'WW' + week.toString(); 
          });
 
          calcs.categories = new_categories;
@@ -95,7 +95,7 @@ Ext.define("CumulativeFlowCalculator", {
         var delta_weeks = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate), 'week');
         
         var slope = delta_points/delta_days;  
-        var velocity = delta_points/delta_weeks;
+        var velocity = Math.round(delta_points/delta_weeks);
 
         var arbitrary_index = Math.round(this.actualIndex/2);
         var arbitrary_date = calcs.categories[arbitrary_index];

@@ -60,10 +60,21 @@ Ext.define('CustomApp', {
                 xtype: 'rallytagpicker',
                 itemId: 'tag-picker',
                 alwaysExpanded: false,
+                autoExpand: false, 
                 minWidth: min_dropdown_width + label_width,
                 fieldLabel: 'Tags',
                 labelWidth: label_width,
                 labelAlign: 'right',
+                storeConfig: {
+                    sorters: [{
+                        property: 'Name',
+                        direction: 'ASC'
+                    }],
+                    filters: [{
+                        property: 'Archived',
+                        value: false
+                    }]
+                },
                 listeners: {
                     scope: this,
                     selectionchange: this._updateTagLabel
@@ -175,10 +186,12 @@ Ext.define('CustomApp', {
         Ext.create('Rally.ui.dialog.SolrArtifactChooserDialog', {
             artifactTypes: ['portfolioitem'],
             autoShow: true,
-            height: 250,
+            height: 400,
+            resizable: true,
             title: 'Choose Portfolio Items',
             storeConfig: {
-                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate']
+                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate'],
+                pageSize: 200
             },
             listeners: {
                 artifactchosen: function(ac, selectedRecord){
