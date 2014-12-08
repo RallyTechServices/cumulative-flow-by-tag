@@ -46,7 +46,6 @@ Ext.define("CumulativeFlowCalculator", {
              var year = Rally.util.DateTime.format(new Date(c),'Y');
              return 'WW' + week.toString(); 
          });
-
          calcs.categories = new_categories;
          
          Ext.each(calcs.series, function(s){
@@ -74,9 +73,9 @@ Ext.define("CumulativeFlowCalculator", {
      _getRemainingSeries: function(calcs){
 
          var velocity = 0;
-
-         if (this.actualIndex == 0 && this.actualPoints == 0 ||
-                 this.actualIndex == calcs.categories.length-1){
+         var actual_index = Number(this.actualIndex);
+         if (actual_index == 0 && actual_index == 0 ||
+                 actual_index == calcs.categories.length-1){
              return null; 
          }
          var data = [];
@@ -84,32 +83,38 @@ Ext.define("CumulativeFlowCalculator", {
              data[i] = null;
         }
          
-        data[this.actualIndex] = this.actualPoints;
+        data[actual_index] = this.actualPoints;
         data[calcs.categories.length-1] = this.totalPoints;
-        var delta_points = data[calcs.categories.length-1] - data[this.actualIndex];
+        var delta_points = data[calcs.categories.length-1] - data[actual_index];
         
         //calculate velocity and slope of the line
         var endDate = calcs.categories[calcs.categories.length-1];
-        var startDate = calcs.categories[this.actualIndex];
+        var startDate = calcs.categories[actual_index];
         var delta_days = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
         var delta_weeks = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate), 'week');
+        
         
         var slope = delta_points/delta_days;  
         var velocity = Math.round(delta_points/delta_weeks);
 
-        var arbitrary_index = Math.round(this.actualIndex/2);
-        var arbitrary_date = calcs.categories[arbitrary_index];
-        var arbitrary_delta_days = Rally.util.DateTime.getDifference(new Date(endDate), new Date(arbitrary_date), 'day');
-        var arbitrary_points = this.totalPoints - slope * arbitrary_delta_days;
-        data[arbitrary_index] = arbitrary_points;
+        if (slope == 0){
+            return null; 
+        }
         
- //       console.log('endDate', endDate, 'startDate',startDate, 'delta days', delta_days, 'delta_weeks', delta_weeks);
+        var delta_days_actual_to_0 = this.actualPoints/slope;
+        var delta_days_actual_to_start = actual_index;
+        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
+
+        var arbitrary_index = this.actualIndex - target_delta_days;  
+        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
+        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
+        data[arbitrary_index] = arbitrary_points;
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#00CCFF',
                  dashStyle: 'Solid',
                  stack: 'remaining'
          };
@@ -148,7 +153,7 @@ Ext.define("CumulativeFlowCalculator", {
                  name: Ext.String.format('Ideal (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#00FF00',
                  dashStyle: 'Solid',
                  stack: 'ideal'
          };
@@ -168,12 +173,13 @@ Ext.define("CumulativeFlowCalculator", {
          this.actualPoints = 0 ;
          this.actualIndex = 0; 
          var currentDate = new Date();
+         console.log(currentDate);
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
-             if (d.getYear() >= currentDate.getYear() && 
-                  d.getMonth() >= currentDate.getMonth() && 
-                  d.getDate() >= currentDate.getDate()){
+             if (d.getYear() == currentDate.getYear() && 
+                  d.getMonth() == currentDate.getMonth() && 
+                  d.getDate() == currentDate.getDate()){
                  this.actualIndex = i;
              }
           };
@@ -220,7 +226,7 @@ Ext.define("CumulativeFlowCalculator", {
                  name: Ext.String.format('Actual (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#000000',
                  dashStyle: 'Solid',
                  stack: 'actual'
          };

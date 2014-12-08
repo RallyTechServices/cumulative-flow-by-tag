@@ -78,6 +78,12 @@ Ext.define('CustomApp', {
                 listeners: {
                     scope: this,
                     selectionchange: this._updateTagLabel
+                },
+                _onBlur: function () {
+                    if (this.toolTip) {
+                        this.toolTip.destroy();
+                    }
+                    this.collapse();
                 }
             },{
                 xtype: 'textarea',
@@ -326,6 +332,7 @@ Ext.define('CustomApp', {
             chart: {
                 zoomType: 'xy'
             },
+            height: 600,
             title: {
                 text: 'Cumulative Flow by Tags'
             },
