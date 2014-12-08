@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 08 2014 08:26:12 GMT-0700 (MST) -->
+    <!--  Build Date: Mon Dec 08 2014 09:59:52 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 08 2014 08:26:12 GMT-0700 (MST)";
-        var CHECKSUM = 19439820840;
+        var APP_BUILD_DATE = "Mon Dec 08 2014 09:59:52 GMT-0700 (MST)";
+        var CHECKSUM = 19723552789;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -70,11 +70,14 @@ Ext.define("CumulativeFlowCalculator", {
              if (s.name == 'TotalEstimated'){
                  s.stack = 'total';
                  s.zIndex = 0;
-                 s.color = '#CCCCCC';
+                 s.color = '#CCCCCC';                 
              } else {
                  s.zIndex = 1;
              }
-         });
+             if (s.name == 'DerivedLeafStoryPlanEstimateTotal' || s.name == 'DerivedPreliminaryEstimate'){
+                 s.stack = s.name
+             }
+        });
 
 //         console.log('calcs',calcs);
          return calcs;
@@ -290,7 +293,6 @@ Ext.define("CumulativeFlowCalculator", {
              as: 'TotalEstimated',
              display: 'area',
              color: 'gray',
-             stack: null
           }];
      },
      getDerivedPreliminaryEstimate: function(snapshot){
@@ -796,7 +798,8 @@ Ext.define('CustomApp', {
         var top_level_pis = [];
         var find_obj = {
                 _TypeHierarchy: {$in: this.portfolioItemTypes},
-                __At: "current" 
+                __At: "current",
+                _ProjectHierarchy: this.getContext().getProject().ObjectID
             };
         if (tags.length > 0) {
             find_obj.Tags = {$in: tags};

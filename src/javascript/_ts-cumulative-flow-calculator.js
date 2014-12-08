@@ -53,11 +53,14 @@ Ext.define("CumulativeFlowCalculator", {
              if (s.name == 'TotalEstimated'){
                  s.stack = 'total';
                  s.zIndex = 0;
-                 s.color = '#CCCCCC';
+                 s.color = '#CCCCCC';                 
              } else {
                  s.zIndex = 1;
              }
-         });
+             if (s.name == 'DerivedLeafStoryPlanEstimateTotal' || s.name == 'DerivedPreliminaryEstimate'){
+                 s.stack = s.name
+             }
+        });
 
 //         console.log('calcs',calcs);
          return calcs;
@@ -273,7 +276,6 @@ Ext.define("CumulativeFlowCalculator", {
              as: 'TotalEstimated',
              display: 'area',
              color: 'gray',
-             stack: null
           }];
      },
      getDerivedPreliminaryEstimate: function(snapshot){

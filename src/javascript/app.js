@@ -351,7 +351,8 @@ Ext.define('CustomApp', {
         var top_level_pis = [];
         var find_obj = {
                 _TypeHierarchy: {$in: this.portfolioItemTypes},
-                __At: "current" 
+                __At: "current",
+                _ProjectHierarchy: this.getContext().getProject().ObjectID
             };
         if (tags.length > 0) {
             find_obj.Tags = {$in: tags};
