@@ -28,6 +28,10 @@ Ext.define("CumulativeFlowCalculator", {
 
          var total_series = this.getSeriesByName('TotalEstimated',calcs);
          this.totalPoints = total_series.data[calcs.categories.length-1];
+         total_series.stack = 'total';
+         total_series.zIndex = 0;
+         total_series.color = '#CCCCCC';                 
+
          
          var actual_series = this._getActualSeries(calcs);
          calcs.series.push(actual_series);
@@ -48,20 +52,15 @@ Ext.define("CumulativeFlowCalculator", {
          });
          calcs.categories = new_categories;
          
-         Ext.each(calcs.series, function(s){
-             if (s.name == 'TotalEstimated'){
-                 s.stack = 'total';
-                 s.zIndex = 0;
-                 s.color = '#CCCCCC';                 
-             } else {
-                 s.zIndex = 1;
+         for (var i = calcs.series.length-1; i >= 0; i--){
+             if (calcs.series[i].name != 'TotalEstimated'){
+                 calcs.series[i].zIndex = 1; 
+             } 
+             if (calcs.series[i].name == 'DerivedLeafStoryPlanEstimateTotal' || calcs.series[i].name == 'DerivedPreliminaryEstimate'){
+                 calcs.series.splice(i,1);
              }
-             if (s.name == 'DerivedLeafStoryPlanEstimateTotal' || s.name == 'DerivedPreliminaryEstimate'){
-                 s.stack = s.name
-             }
-        });
-
-//         console.log('calcs',calcs);
+         }
+        // console.log('calcs',calcs);
          return calcs;
      },
      getPercentCompleted: function(){
