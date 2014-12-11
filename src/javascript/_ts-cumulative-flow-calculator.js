@@ -22,7 +22,7 @@ Ext.define("CumulativeFlowCalculator", {
      runCalculation: function (snapshots) {
          var calculatorConfig = this._prepareCalculatorConfig(),
              seriesConfig = this._buildSeriesConfig(calculatorConfig);
-         console.log(snapshots);
+
          var calculator = this.prepareCalculator(calculatorConfig);
          calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
          
@@ -176,7 +176,7 @@ Ext.define("CumulativeFlowCalculator", {
          this.actualPoints = 0 ;
          this.actualIndex = 0; 
          var currentDate = new Date();
-         console.log(currentDate);
+
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
@@ -325,11 +325,11 @@ Ext.define("CumulativeFlowCalculator", {
      _buildGridStore: function(snapshots){
          var data = [];
          var columnConfigs = [
-             {text: 'Name', dataIndex: 'Name'},
              {text: 'FormattedID', dataIndex: 'FormattedID'},
-             {text: 'Type', dataIndex: 'Type'},
-             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
-             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
+             {text: 'Name', dataIndex: 'Name', flex: 1},
+           //  {text: 'Type', dataIndex: 'Type'},
+             {text: 'Preliminary Estimate', dataIndex: 'PreliminaryEstimate'},
+             {text: 'LeafStory PlanEstimate Total', dataIndex: 'LeafStoryPlanEstimateTotal'},
              {text: 'State', dataIndex: 'State'},
              {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
              {text: 'ScheduleState', dataIndex: 'ScheduleState'},
@@ -340,10 +340,10 @@ Ext.define("CumulativeFlowCalculator", {
          Ext.each(snapshots, function(snap){
              var snap_date = new Date(snap._ValidTo);
              if (/^9999/.test(snap._ValidTo)){
+                 var type = snap._TypeHierarchy.slice(-1)[0];
                  var rec = { 
                          "FormattedID":snap.FormattedID,
                          "Name": snap.Name,
-                         "Type": snap._TypeHierarchy.slice(-1)[0],
                          "PreliminaryEstimate": '',
                          "LeafStoryPlanEstimateTotal": '',
                          "PlanEstimate": '',
@@ -351,7 +351,7 @@ Ext.define("CumulativeFlowCalculator", {
                          "ScheduleState": '',
                          "PortfolioItem": ''
                  };
-                 if (/^PortfolioItem/.test(rec.Type)){
+                 if (/^PortfolioItem/.test(type)){
                      portfolioItems[snap.ObjectID] = snap.FormattedID;
                  }
                  if (snap.PreliminaryEstimate){
