@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 11 2014 15:45:19 GMT-0700 (MST) -->
+    <!--  Build Date: Thu Dec 11 2014 16:10:10 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 11 2014 15:45:19 GMT-0700 (MST)";
-        var CHECKSUM = 30795798167;
+        var APP_BUILD_DATE = "Thu Dec 11 2014 16:10:10 GMT-0700 (MST)";
+        var CHECKSUM = 30795280261;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -825,6 +825,8 @@ Ext.define('CustomApp', {
             success: function(data){
                 this.logger.log('_run Success', data);
                 this.portfolioItemIds = this._getPortfolioItemIds(data);
+                this.down('#sub_chart_box').removeAll();
+                
                 this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
             },
             failure: function(error, success){
@@ -845,8 +847,6 @@ Ext.define('CustomApp', {
     },
     _createChart: function(portfolioItemIds, projectID, projectName, containerID, chartID, chartHeight){
         this.logger.log('_createChart',portfolioItemIds, this._getStartDate(),this._getEndDate());
-        var deferred = Ext.create('Deft.Deferred');
-        
         if (chartHeight == undefined){
             chartHeight = 600;
         }

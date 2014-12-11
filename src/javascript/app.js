@@ -298,6 +298,8 @@ Ext.define('CustomApp', {
             success: function(data){
                 this.logger.log('_run Success', data);
                 this.portfolioItemIds = this._getPortfolioItemIds(data);
+                this.down('#sub_chart_box').removeAll();
+                
                 this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
             },
             failure: function(error, success){
@@ -318,8 +320,6 @@ Ext.define('CustomApp', {
     },
     _createChart: function(portfolioItemIds, projectID, projectName, containerID, chartID, chartHeight){
         this.logger.log('_createChart',portfolioItemIds, this._getStartDate(),this._getEndDate());
-        var deferred = Ext.create('Deft.Deferred');
-        
         if (chartHeight == undefined){
             chartHeight = 600;
         }
