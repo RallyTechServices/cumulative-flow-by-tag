@@ -299,6 +299,9 @@ Ext.define('CustomApp', {
         if (this.down('#rally-chart')){
             this.down('#rally-chart').destroy();
         }
+        if (this.down('#chart-grid')){
+            this.down('#chart-grid').destroy();
+        }
         
         this.down('#display_box').add({
             xtype: 'rallychart',
@@ -321,6 +324,7 @@ Ext.define('CustomApp', {
                 scope: this,
                 readyToRender: function(chart){
                     chart.chartConfig.subtitle.text = chart.calculator.getPercentCompleted(); 
+                    this._displayGrid(chart);
                 }
             }
         });    
@@ -393,7 +397,7 @@ Ext.define('CustomApp', {
                 }
             },
             autoLoad: true,
-            fetch: ['ObjectID', 'FormattedID','Name','_ItemHierarchy','_TypeHierarchy','LeafStoryPlanEstimateTotal','PreliminaryEstimate','PlannedStartDate','PlannedEndDate',this.portfolioItemStateName],
+            fetch: ['ObjectID', 'FormattedID','Name','_ItemHierarchy','_TypeHierarchy','LeafStoryPlanEstimateTotal','PreliminaryEstimate','PlannedStartDate','PlannedEndDate','State'],
             hydrate: ['State','PreliminaryEstimate','_TypeHierarchy'],
             find: find_obj
         });
@@ -418,8 +422,8 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: this.getContext().getProject().ObjectID,
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate',this.portfolioItemStateName,'LeafStoryPlanEstimateTotal'],
-            hydrate: ['ScheduleState','_TypeHierarchy',this.portfolioItemStateName],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem'],
+            hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
                 _ValidFrom: 1
@@ -441,5 +445,24 @@ Ext.define('CustomApp', {
         } else {
             this.down('#tags-label').hide();
         }
+    },
+    _displayGrid: function(chart){
+        this.logger.log('_displayGrid', chart.calculator.gridStoreData);
+
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: chart.calculator.gridStoreData.data
+            
+        });
+        if (this.down('#chart-grid')){
+            this.down('#chart-grid').destroy();
+        }
+        
+        this.down('#display_box').add({
+            xtype: 'rallygrid',
+            itemId: 'chart-grid',
+            store: store,
+            margin: 25,
+            columnCfgs: chart.calculator.gridStoreData.columnCfgs
+        });
     }
 });

@@ -13,6 +13,8 @@ Ext.define("CumulativeFlowCalculator", {
      actualPoints: 0,
      actualIndex: 0,
      totalPoints: 0,
+     gridStoreData: null,
+     
      constructor: function(config) {
          this.initConfig(config);
          this.callParent(arguments);
@@ -20,9 +22,11 @@ Ext.define("CumulativeFlowCalculator", {
      runCalculation: function (snapshots) {
          var calculatorConfig = this._prepareCalculatorConfig(),
              seriesConfig = this._buildSeriesConfig(calculatorConfig);
-
+         console.log(snapshots);
          var calculator = this.prepareCalculator(calculatorConfig);
          calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+         
+         this.gridStoreData = this._buildGridStore(snapshots);
          
          var calcs = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
 
@@ -186,7 +190,6 @@ Ext.define("CumulativeFlowCalculator", {
               this.actualIndex = calcs.categories.length-1;
           }
 
-         
          Ext.each(calcs.series, function(s){
              var idx = Ext.Array.indexOf(states, s.name, 0);
              if (idx >= 0 && firstInState[idx] <0){
@@ -259,6 +262,16 @@ Ext.define("CumulativeFlowCalculator", {
          return metrics; 
          
      },
+//     getSummaryMetricsConfig: function(){
+//         return [{
+//             field: 'DerivedLeafStoryPlanEstimateTotal',
+//             f: 'sum',
+//         },{
+//             field: 'DerivedPreliminaryEstimate',
+//             f: 'sum',
+//         }];
+//         
+//     },
        getDerivedFieldsOnInput: function(){
            return [{
                f: this.getDerivedPreliminaryEstimate,
@@ -285,7 +298,7 @@ Ext.define("CumulativeFlowCalculator", {
      },
      getDerivedPreliminaryEstimate: function(snapshot){
          if (snapshot.PreliminaryEstimate){
-             return this.preliminaryEstimateMap[snapshot.PreliminaryEstimate];
+             return Number(this.preliminaryEstimateMap[snapshot.PreliminaryEstimate]);
          }
          return 0;
      },
@@ -308,5 +321,67 @@ Ext.define("CumulativeFlowCalculator", {
              }
          });
          return series; 
+     },
+     _buildGridStore: function(snapshots){
+         var data = [];
+         var columnConfigs = [
+             {text: 'Name', dataIndex: 'Name'},
+             {text: 'FormattedID', dataIndex: 'FormattedID'},
+             {text: 'Type', dataIndex: 'Type'},
+             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
+             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
+             {text: 'State', dataIndex: 'State'},
+             {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
+             {text: 'ScheduleState', dataIndex: 'ScheduleState'},
+             {text: 'PortfolioItem Ancestor', dataIndex: 'PortfolioItem'}
+         ]; 
+         
+         var portfolioItems = {};
+         Ext.each(snapshots, function(snap){
+             var snap_date = new Date(snap._ValidTo);
+             if (/^9999/.test(snap._ValidTo)){
+                 var rec = { 
+                         "FormattedID":snap.FormattedID,
+                         "Name": snap.Name,
+                         "Type": snap._TypeHierarchy.slice(-1)[0],
+                         "PreliminaryEstimate": '',
+                         "LeafStoryPlanEstimateTotal": '',
+                         "PlanEstimate": '',
+                         "State": '',
+                         "ScheduleState": '',
+                         "PortfolioItem": ''
+                 };
+                 if (/^PortfolioItem/.test(rec.Type)){
+                     portfolioItems[snap.ObjectID] = snap.FormattedID;
+                 }
+                 if (snap.PreliminaryEstimate){
+                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
+                 }
+                 if (snap.LeafStoryPlanEstimateTotal){
+                     rec['LeafStoryPlanEstimateTotal'] = snap.LeafStoryPlanEstimateTotal;
+                 }
+                 if (snap.PlanEstimate){
+                     rec['PlanEstimate'] = snap.PlanEstimate;
+                 }
+                 if (snap.State){
+                     rec['State'] = snap.State;
+                 }
+                 if (snap.ScheduleState){
+                     rec['ScheduleState'] = snap.ScheduleState;
+                 }
+                 if (snap.PortfolioItem){
+                     rec['PortfolioItem'] = snap.PortfolioItem; 
+                 }
+                 data.push(rec);
+             }
+         },this);
+         
+         //Now hydrate the portfolio items
+         Ext.each(data, function(rec){
+             if (Number(rec.PortfolioItem) > 0){
+                 rec.PortfolioItem = portfolioItems[rec.PortfolioItem];
+             }
+         },this);
+         return {data: data, columnCfgs: columnConfigs}; 
      }
  });
