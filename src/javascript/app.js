@@ -4,12 +4,14 @@ Ext.define('CustomApp', {
     logger: new Rally.technicalservices.Logger(),
     items: [
        {xtype:'container',itemId:'control_box',layout: {type:'hbox'}, padding: 10},
-       {xtype:'container',itemId:'summary_box',layout: {type:'vbox'}, 
-                     padding: 10, 
-                     tpl: '{Msg} % of Total Points Completed',
-                     emptyText: '',
-                     flex: 1},
+//       {xtype:'container',itemId:'summary_box',layout: {type:'vbox'}, 
+//                     padding: 10, 
+//                     tpl: '{Msg} % of Total Points Completed',
+//                     emptyText: '',
+//                     flex: 1},
         {xtype:'container',itemId:'display_box'},
+        {xtype:'container',itemId:'sub_chart_box',layout: {type: 'hbox'}},
+        {xtype:'container', itemId: 'grid_box'},
         {xtype:'tsinfolink'}
     ],
     /*
@@ -60,13 +62,30 @@ Ext.define('CustomApp', {
                 xtype: 'rallytagpicker',
                 itemId: 'tag-picker',
                 alwaysExpanded: false,
+                autoExpand: false, 
                 minWidth: min_dropdown_width + label_width,
                 fieldLabel: 'Tags',
                 labelWidth: label_width,
                 labelAlign: 'right',
+                storeConfig: {
+                    sorters: [{
+                        property: 'Name',
+                        direction: 'ASC'
+                    }],
+                    filters: [{
+                        property: 'Archived',
+                        value: false
+                    }]
+                },
                 listeners: {
                     scope: this,
                     selectionchange: this._updateTagLabel
+                },
+                _onBlur: function () {
+                    if (this.toolTip) {
+                        this.toolTip.destroy();
+                    }
+                    this.collapse();
                 }
             },{
                 xtype: 'textarea',
@@ -120,6 +139,25 @@ Ext.define('CustomApp', {
            scope: this,
            handler: this._run
        });
+       this.down('#control_box').add({
+           xtype: 'rallybutton',
+           itemId: 'btn-show-grid',
+           text: 'Show Grid',
+           margin: '0 0 0 20',
+           scope: this,
+           disabled: true, 
+           handler: this._displayGrid
+       });
+       this.down('#control_box').add({
+           xtype: 'rallybutton',
+           itemId: 'btn-drill-down',
+           text: 'Drill Down',
+           margin: '0 0 0 20',
+           scope: this,
+           disabled: true,
+           handler: this._drillDown
+       });
+       
     },
     _updateQuerySummary: function(data){
         this.down('#query-summary').update(data);
@@ -175,10 +213,12 @@ Ext.define('CustomApp', {
         Ext.create('Rally.ui.dialog.SolrArtifactChooserDialog', {
             artifactTypes: ['portfolioitem'],
             autoShow: true,
-            height: 250,
+            height: 400,
+            resizable: true,
             title: 'Choose Portfolio Items',
             storeConfig: {
-                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate']
+                fetch: ['FormattedID','Name','ObjectID','PlannedEndDate','PlannedStartDate'],
+                pageSize: 200
             },
             listeners: {
                 artifactchosen: function(ac, selectedRecord){
@@ -241,16 +281,24 @@ Ext.define('CustomApp', {
         if (!this._validate()){
             return; 
         }
+
+        if (this.down('#chart-grid')){
+            this.down('#chart-grid').destroy();
+        }
         
         var tags = this._getTagObjectIDs(); 
         var pids = this._getPortfolioItemIDs();
-
+        var container_id = 'display_box';
+        var chart_id = 'rally-chart';
+        var project_id = this.getContext().getProject().ObjectID;
+        var project_name = this.getContext().getProject().Name;
+        
         this._fetchPortfolioItemData(tags, pids).then({
             scope:this,
             success: function(data){
                 this.logger.log('_run Success', data);
-                var portfolioItemIds = this._getPortfolioItemIds(data);
-                this._createChart(portfolioItemIds);
+                this.portfolioItemIds = this._getPortfolioItemIds(data);
+                this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
             },
             failure: function(error, success){
                 alert(error);
@@ -268,25 +316,30 @@ Ext.define('CustomApp', {
          },this);
          return pids;
     },
-    _createChart: function(portfolioItemIds){
+    _createChart: function(portfolioItemIds, projectID, projectName, containerID, chartID, chartHeight){
         this.logger.log('_createChart',portfolioItemIds, this._getStartDate(),this._getEndDate());
+        var deferred = Ext.create('Deft.Deferred');
         
+        if (chartHeight == undefined){
+            chartHeight = 600;
+        }
         var startDate = this._getStartDate();
         var endDate = this._getEndDate(); 
         var lowest_pi = this._getLowestLevelPortfolioItemType();
         var pi_state_name = this.portfolioItemStateName;
         var pi_state_done = this.portfolioItemStateDone;
         
-        if (this.down('#rally-chart')){
-            this.down('#rally-chart').destroy();
+        if (this.down('#' + chartID)){
+            this.down('#' + chartID).destroy();
         }
         
-        this.down('#display_box').add({
+        this.down('#' + containerID).add({
             xtype: 'rallychart',
-            itemId: 'rally-chart',
+            itemId: chartID,
+            height: chartHeight,
             calculatorType: 'CumulativeFlowCalculator',
             storeType: 'Rally.data.lookback.SnapshotStore',
-            storeConfig: this._getStoreConfig(portfolioItemIds),
+            storeConfig: this._getStoreConfig(portfolioItemIds, projectID),
             calculatorConfig: {
                 stateFieldName: 'ScheduleState',
                 stateFieldValues: this.stateFieldValues,
@@ -297,24 +350,34 @@ Ext.define('CustomApp', {
                 portfolioItemStateName: pi_state_name,
                 preliminaryEstimateMap: this.preliminaryEstimateMap
             },
-            chartConfig: this._getChartConfig(),
+            queryErrorMessage: 'No data was found for ' + projectName + ' based on the current chart settings.',
+            chartConfig: this._getChartConfig(projectName, chartHeight),
             listeners: {
                 scope: this,
                 readyToRender: function(chart){
                     chart.chartConfig.subtitle.text = chart.calculator.getPercentCompleted(); 
+                    this.down('#btn-show-grid').setDisabled(false);
+                    this.down('#btn-drill-down').setDisabled(false);
+                 //   deferred.resolve();
+                },
+                afterrender: function(chart){
+                    deferred.resolve();
                 }
             }
-        });    
+        });
+        return deferred;  
     },
 
-    _getChartConfig: function(){
+    _getChartConfig: function(projectName, chartHeight){
         
         return {
             chart: {
-                zoomType: 'xy'
+                zoomType: 'xy',
+                height: chartHeight
             },
+            height: chartHeight,
             title: {
-                text: 'Cumulative Flow by Tags'
+                text: projectName + ' Cumulative Flow by Tags'
             },
             subtitle: {
                 text: ''
@@ -351,7 +414,8 @@ Ext.define('CustomApp', {
         var top_level_pis = [];
         var find_obj = {
                 _TypeHierarchy: {$in: this.portfolioItemTypes},
-                __At: "current" 
+                __At: "current",
+                _ProjectHierarchy: this.getContext().getProject().ObjectID
             };
         if (tags.length > 0) {
             find_obj.Tags = {$in: tags};
@@ -372,7 +436,7 @@ Ext.define('CustomApp', {
                 }
             },
             autoLoad: true,
-            fetch: ['ObjectID', 'FormattedID','Name','_ItemHierarchy','_TypeHierarchy','LeafStoryPlanEstimateTotal','PreliminaryEstimate','PlannedStartDate','PlannedEndDate',this.portfolioItemStateName],
+            fetch: ['ObjectID', 'FormattedID','Name','_ItemHierarchy','_TypeHierarchy','LeafStoryPlanEstimateTotal','PreliminaryEstimate','PlannedStartDate','PlannedEndDate','State'],
             hydrate: ['State','PreliminaryEstimate','_TypeHierarchy'],
             find: find_obj
         });
@@ -388,17 +452,17 @@ Ext.define('CustomApp', {
         return tags; 
     },
     
-    _getStoreConfig: function(portfolioItemObjectIds){
+    _getStoreConfig: function(portfolioItemObjectIds, projectID){
         this.logger.log('_getStoreConfig', portfolioItemObjectIds);
         return {
             find: {
                 _TypeHierarchy: {$in: ['HierarchicalRequirement', this._getLowestLevelPortfolioItemType()]},
                 Children: null,
-                _ProjectHierarchy: this.getContext().getProject().ObjectID,
+                _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate',this.portfolioItemStateName,'LeafStoryPlanEstimateTotal'],
-            hydrate: ['ScheduleState','_TypeHierarchy',this.portfolioItemStateName],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem'],
+            hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
                 _ValidFrom: 1
@@ -420,5 +484,95 @@ Ext.define('CustomApp', {
         } else {
             this.down('#tags-label').hide();
         }
+    },
+    _displayGrid: function(){
+        this.logger.log('_displayGrid');
+        var chart = this.down('#rally-chart');
+       
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: chart.calculator.gridStoreData.data,
+            pageSize: 200
+            
+        });
+        if (this.down('#chart-grid')){
+            this.down('#chart-grid').destroy();
+        }
+        
+        this.down('#grid_box').add({
+            xtype: 'rallygrid',
+            itemId: 'chart-grid',
+            store: store,
+            margin: 25,
+            width: '100%',
+            columnCfgs: chart.calculator.gridStoreData.columnCfgs,
+            showPagingToolbar: true,
+            pagingToolbarCfg: {
+                store: store,
+                pageSizes: [100,200,500,1000]
+            }
+        });
+    },
+    _drillDown: function(){
+       //Get child projects
+       this.logger.log('_drillDown');
+       
+       Ext.create('Rally.data.wsapi.Store',{
+               model: 'Project',
+               autoLoad: true,
+               filters: {
+                   property: 'Parent',
+                   value: this.getContext().getProjectRef()
+               },
+               listeners: {
+                   scope: this, 
+                   load: function(store, data, success) {
+                       this.logger.log(data);
+                       this._renderSubCharts(data);
+                   }
+               },
+               fetch: ['ObjectID', 'Name']
+       }); 
+    },
+    _renderSubCharts: function(project_records){
+        this.down('#sub_chart_box').removeAll();
+        this.down('#sub_chart_box').add({
+            xtype: 'container',
+            itemId: 'sub-chart-left',
+            layout: {type: 'vbox'},
+            width: '50%',
+            padding: 10
+        });
+        this.down('#sub_chart_box').add({
+            xtype: 'container',
+            itemId: 'sub-chart-right',
+            layout: {type: 'vbox'},
+            padding: 10,
+            width: '50%'
+                
+        });
+        var me = this;
+        var pids = this.portfolioItemIds;
+        var container_id = 'sub-chart-left';
+        var chart_height = 300;
+        var promises = [];  
+        Ext.each(project_records, function(d){
+            var obj_id = d.get('ObjectID');
+            var chart_container_id = obj_id + '-box';
+            var chart_id = obj_id + '-chart';
+            this.down('#' + container_id).add({
+                xtype: 'container',
+                itemId: chart_container_id,
+                width: '100%',
+                height: chart_height,
+                margin: 25
+            });
+           this._createChart(pids, obj_id, d.get('Name'), chart_container_id, chart_id,chart_height);
+            if (container_id == 'sub-chart-left'){
+                container_id = 'sub-chart-right';
+            } else {
+                container_id = 'sub-chart-left';
+            }
+        },this);
+
     }
 });

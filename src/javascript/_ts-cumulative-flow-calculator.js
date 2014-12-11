@@ -13,6 +13,8 @@ Ext.define("CumulativeFlowCalculator", {
      actualPoints: 0,
      actualIndex: 0,
      totalPoints: 0,
+     gridStoreData: null,
+     
      constructor: function(config) {
          this.initConfig(config);
          this.callParent(arguments);
@@ -24,10 +26,16 @@ Ext.define("CumulativeFlowCalculator", {
          var calculator = this.prepareCalculator(calculatorConfig);
          calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
          
+         this.gridStoreData = this._buildGridStore(snapshots);
+         
          var calcs = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
 
          var total_series = this.getSeriesByName('TotalEstimated',calcs);
          this.totalPoints = total_series.data[calcs.categories.length-1];
+         total_series.stack = 'total';
+         total_series.zIndex = 0;
+         total_series.color = '#CCCCCC';                 
+
          
          var actual_series = this._getActualSeries(calcs);
          calcs.series.push(actual_series);
@@ -44,22 +52,19 @@ Ext.define("CumulativeFlowCalculator", {
          var new_categories = _.map(calcs.categories, function(c){
              var week = Rally.util.DateTime.format(new Date(c), 'W');
              var year = Rally.util.DateTime.format(new Date(c),'Y');
-             return year.toString() + 'WW' + week.toString(); 
+             return 'WW' + week.toString(); 
          });
-
          calcs.categories = new_categories;
          
-         Ext.each(calcs.series, function(s){
-             if (s.name == 'TotalEstimated'){
-                 s.stack = 'total';
-                 s.zIndex = 0;
-                 s.color = '#CCCCCC';
-             } else {
-                 s.zIndex = 1;
+         for (var i = calcs.series.length-1; i >= 0; i--){
+             if (calcs.series[i].name != 'TotalEstimated'){
+                 calcs.series[i].zIndex = 1; 
+             } 
+             if (calcs.series[i].name == 'DerivedLeafStoryPlanEstimateTotal' || calcs.series[i].name == 'DerivedPreliminaryEstimate'){
+                 calcs.series.splice(i,1);
              }
-         });
-
-//         console.log('calcs',calcs);
+         }
+        // console.log('calcs',calcs);
          return calcs;
      },
      getPercentCompleted: function(){
@@ -71,9 +76,9 @@ Ext.define("CumulativeFlowCalculator", {
      _getRemainingSeries: function(calcs){
 
          var velocity = 0;
-
-         if (this.actualIndex == 0 && this.actualPoints == 0 ||
-                 this.actualIndex == calcs.categories.length-1){
+         var actual_index = Number(this.actualIndex);
+         if (actual_index == 0 && actual_index == 0 ||
+                 actual_index == calcs.categories.length-1){
              return null; 
          }
          var data = [];
@@ -81,32 +86,38 @@ Ext.define("CumulativeFlowCalculator", {
              data[i] = null;
         }
          
-        data[this.actualIndex] = this.actualPoints;
+        data[actual_index] = this.actualPoints;
         data[calcs.categories.length-1] = this.totalPoints;
-        var delta_points = data[calcs.categories.length-1] - data[this.actualIndex];
+        var delta_points = data[calcs.categories.length-1] - data[actual_index];
         
         //calculate velocity and slope of the line
         var endDate = calcs.categories[calcs.categories.length-1];
-        var startDate = calcs.categories[this.actualIndex];
+        var startDate = calcs.categories[actual_index];
         var delta_days = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
         var delta_weeks = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate), 'week');
         
-        var slope = delta_points/delta_days;  
-        var velocity = delta_points/delta_weeks;
-
-        var arbitrary_index = Math.round(this.actualIndex/2);
-        var arbitrary_date = calcs.categories[arbitrary_index];
-        var arbitrary_delta_days = Rally.util.DateTime.getDifference(new Date(endDate), new Date(arbitrary_date), 'day');
-        var arbitrary_points = this.totalPoints - slope * arbitrary_delta_days;
-        data[arbitrary_index] = arbitrary_points;
         
- //       console.log('endDate', endDate, 'startDate',startDate, 'delta days', delta_days, 'delta_weeks', delta_weeks);
+        var slope = delta_points/delta_days;  
+        var velocity = Math.round(delta_points/delta_weeks);
+
+        if (slope == 0){
+            return null; 
+        }
+        
+        var delta_days_actual_to_0 = this.actualPoints/slope;
+        var delta_days_actual_to_start = actual_index;
+        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
+
+        var arbitrary_index = this.actualIndex - target_delta_days;  
+        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
+        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
+        data[arbitrary_index] = arbitrary_points;
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#00CCFF',
                  dashStyle: 'Solid',
                  stack: 'remaining'
          };
@@ -145,7 +156,7 @@ Ext.define("CumulativeFlowCalculator", {
                  name: Ext.String.format('Ideal (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#00FF00',
                  dashStyle: 'Solid',
                  stack: 'ideal'
          };
@@ -165,12 +176,13 @@ Ext.define("CumulativeFlowCalculator", {
          this.actualPoints = 0 ;
          this.actualIndex = 0; 
          var currentDate = new Date();
+
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
-             if (d.getYear() >= currentDate.getYear() && 
-                  d.getMonth() >= currentDate.getMonth() && 
-                  d.getDate() >= currentDate.getDate()){
+             if (d.getYear() == currentDate.getYear() && 
+                  d.getMonth() == currentDate.getMonth() && 
+                  d.getDate() == currentDate.getDate()){
                  this.actualIndex = i;
              }
           };
@@ -178,7 +190,6 @@ Ext.define("CumulativeFlowCalculator", {
               this.actualIndex = calcs.categories.length-1;
           }
 
-         
          Ext.each(calcs.series, function(s){
              var idx = Ext.Array.indexOf(states, s.name, 0);
              if (idx >= 0 && firstInState[idx] <0){
@@ -217,7 +228,7 @@ Ext.define("CumulativeFlowCalculator", {
                  name: Ext.String.format('Actual (velocity: {0})',velocity),
                  type: 'line',
                  data: data,
-                 color: '',
+                 color: '#000000',
                  dashStyle: 'Solid',
                  stack: 'actual'
          };
@@ -251,6 +262,16 @@ Ext.define("CumulativeFlowCalculator", {
          return metrics; 
          
      },
+//     getSummaryMetricsConfig: function(){
+//         return [{
+//             field: 'DerivedLeafStoryPlanEstimateTotal',
+//             f: 'sum',
+//         },{
+//             field: 'DerivedPreliminaryEstimate',
+//             f: 'sum',
+//         }];
+//         
+//     },
        getDerivedFieldsOnInput: function(){
            return [{
                f: this.getDerivedPreliminaryEstimate,
@@ -273,12 +294,11 @@ Ext.define("CumulativeFlowCalculator", {
              as: 'TotalEstimated',
              display: 'area',
              color: 'gray',
-             stack: null
           }];
      },
      getDerivedPreliminaryEstimate: function(snapshot){
          if (snapshot.PreliminaryEstimate){
-             return this.preliminaryEstimateMap[snapshot.PreliminaryEstimate];
+             return Number(this.preliminaryEstimateMap[snapshot.PreliminaryEstimate]);
          }
          return 0;
      },
@@ -301,5 +321,67 @@ Ext.define("CumulativeFlowCalculator", {
              }
          });
          return series; 
+     },
+     _buildGridStore: function(snapshots){
+         var data = [];
+         var columnConfigs = [
+             {text: 'FormattedID', dataIndex: 'FormattedID'},
+             {text: 'Name', dataIndex: 'Name', flex: 1},
+           //  {text: 'Type', dataIndex: 'Type'},
+             {text: 'Preliminary Estimate', dataIndex: 'PreliminaryEstimate'},
+             {text: 'LeafStory PlanEstimate Total', dataIndex: 'LeafStoryPlanEstimateTotal'},
+             {text: 'State', dataIndex: 'State'},
+             {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
+             {text: 'ScheduleState', dataIndex: 'ScheduleState'},
+             {text: 'PortfolioItem Ancestor', dataIndex: 'PortfolioItem'}
+         ]; 
+         
+         var portfolioItems = {};
+         Ext.each(snapshots, function(snap){
+             var snap_date = new Date(snap._ValidTo);
+             if (/^9999/.test(snap._ValidTo)){
+                 var type = snap._TypeHierarchy.slice(-1)[0];
+                 var rec = { 
+                         "FormattedID":snap.FormattedID,
+                         "Name": snap.Name,
+                         "PreliminaryEstimate": '',
+                         "LeafStoryPlanEstimateTotal": '',
+                         "PlanEstimate": '',
+                         "State": '',
+                         "ScheduleState": '',
+                         "PortfolioItem": ''
+                 };
+                 if (/^PortfolioItem/.test(type)){
+                     portfolioItems[snap.ObjectID] = snap.FormattedID;
+                 }
+                 if (snap.PreliminaryEstimate){
+                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
+                 }
+                 if (snap.LeafStoryPlanEstimateTotal){
+                     rec['LeafStoryPlanEstimateTotal'] = snap.LeafStoryPlanEstimateTotal;
+                 }
+                 if (snap.PlanEstimate){
+                     rec['PlanEstimate'] = snap.PlanEstimate;
+                 }
+                 if (snap.State){
+                     rec['State'] = snap.State;
+                 }
+                 if (snap.ScheduleState){
+                     rec['ScheduleState'] = snap.ScheduleState;
+                 }
+                 if (snap.PortfolioItem){
+                     rec['PortfolioItem'] = snap.PortfolioItem; 
+                 }
+                 data.push(rec);
+             }
+         },this);
+         
+         //Now hydrate the portfolio items
+         Ext.each(data, function(rec){
+             if (Number(rec.PortfolioItem) > 0){
+                 rec.PortfolioItem = portfolioItems[rec.PortfolioItem];
+             }
+         },this);
+         return {data: data, columnCfgs: columnConfigs}; 
      }
  });
