@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 11:25:14 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 11:38:37 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 11:25:14 GMT-0700 (MST)";
-        var CHECKSUM = 33369685407;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 11:38:37 GMT-0700 (MST)";
+        var CHECKSUM = 33781305833;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -398,23 +398,28 @@ Ext.define("CumulativeFlowCalculator", {
          Ext.each(data, function(rec){
              if (Number(rec.PortfolioItem) > 0){
                  var pi = portfolioItems[rec.PortfolioItem];
-                 rec.PortfolioItem = pi.FormattedID;
-                 rec.PortfolioItemName = pi.Name;
-                 if (pi.PreliminaryEstimate){
-                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                 if (pi) {
+                     rec.PortfolioItem = pi.FormattedID;
+                     rec.PortfolioItemName = pi.Name;
+                     if (pi.PreliminaryEstimate){
+                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                     }
+                     if (pi.LeafStoryPlanEstimateTotal){
+                         rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
+                     }
+                     if (pi.AcceptedLeafStoryPlanEstimateTotal){
+                         rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
+                     }
+                     if (pi.State){
+                         rec['State'] = pi.State;
+                     }
+                 } else {
+                     //console.log('PortfolioItem not found (' + rec.PortfolioItem + ')');
+                     rec.PortfolioItemName = 'PortfolioItem not found (' + rec.PortfolioItem + ')';
                  }
-                 if (pi.LeafStoryPlanEstimateTotal){
-                     rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
-                 }
-                 if (pi.AcceptedLeafStoryPlanEstimateTotal){
-                     rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
-                 }
-                 if (pi.State){
-                     rec['State'] = pi.State;
-                 }
-
              }
          },this);
+         //console.log(data);
          return {data: data, columnCfgs: columnConfigs}; 
      }
  });
