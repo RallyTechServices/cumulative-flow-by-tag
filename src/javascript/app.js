@@ -361,11 +361,11 @@ Ext.define('CustomApp', {
                  //   deferred.resolve();
                 },
                 afterrender: function(chart){
-                    deferred.resolve();
+                    //deferred.resolve();
                 }
             }
         });
-        return deferred;  
+        //return deferred;  
     },
 
     _getChartConfig: function(projectName, chartHeight){
