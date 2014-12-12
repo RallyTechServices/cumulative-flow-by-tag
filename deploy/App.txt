@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 11:38:37 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 14:21:45 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 11:38:37 GMT-0700 (MST)";
-        var CHECKSUM = 33781305833;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 14:21:45 GMT-0700 (MST)";
+        var CHECKSUM = 34207938470;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -203,12 +203,15 @@ Ext.define("CumulativeFlowCalculator", {
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
-             if (d.getYear() == currentDate.getYear() && 
-                  d.getMonth() == currentDate.getMonth() && 
-                  d.getDate() == currentDate.getDate()){
+             console.log(d);
+             if (d.getYear() >= currentDate.getYear() && 
+                  d.getMonth() >= currentDate.getMonth() && 
+                  d.getDate() >= currentDate.getDate()){
                  this.actualIndex = i;
+                 break; 
              }
           };
+         // console.log('actual',currentDate, this.actualIndex, calcs.categories[this.actualIndex]);
           if (this.actualIndex == 0){
               this.actualIndex = calcs.categories.length-1;
           }
@@ -223,6 +226,7 @@ Ext.define("CumulativeFlowCalculator", {
                      }
                  }
              }
+             
              if (s.name == this.AcceptedName){
 //                 _.range(s.data.length).map(function () { return null });
                  for (var i=0; i<s.data.length; i++){
@@ -231,11 +235,12 @@ Ext.define("CumulativeFlowCalculator", {
                  this.actualPoints = s.data[this.actualIndex];
              }
          }, this);
+//         console.log('firstInState', firstInState);
          
-
          //Get the date of first inprogress.  If that doesn't work, then get the first date of the next state
          var actual_start_index = 0;  
          var idx = Ext.Array.indexOf(states, this.InProgressName, 0);
+         
          for (var j=idx; j<firstInState.length; j++){
              if (firstInState[j] >= 0){
                  actual_start_index = firstInState[j];
@@ -348,8 +353,9 @@ Ext.define("CumulativeFlowCalculator", {
                  return r.get('FormattedID');
              }},
              {text: 'Name', dataIndex: 'Name', flex: 1},
+//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
              {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
-             {text: 'ScheduleState', dataIndex: 'ScheduleState'},
+             {text: 'State/ScheduleState', dataIndex: 'ScheduleState'},
 //             {text: 'PortfolioItem', dataIndex: 'PortfolioItem'},
 //             {text: 'State', dataIndex: 'State'},
 //             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
@@ -1047,12 +1053,10 @@ Ext.define('CustomApp', {
                 var pid = record.get('PortfolioItem');
                 var pi_name = record.get('PortfolioItemName');
                 var pi_preliminary_est = record.get('PreliminaryEstimate');
-                if (pi_preliminary_est > 0){
-                    pi_preliminary_est = "<br>PreliminaryEstimate: " + pi_preliminary_est;
-                }
                 var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
                 var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
-                return Ext.String.format("{0}: {1}{2}<br>PlanEstimate Total: {3} ({4} Accepted)",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
+                var pi_state = record.get('State');
+                return Ext.String.format("{0}: {1}<br> Preliminary Estimate {2}<br> PlanEstimate: {3} ({4})",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
             }
         });
         

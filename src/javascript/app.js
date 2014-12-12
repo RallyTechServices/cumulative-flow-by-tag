@@ -499,12 +499,10 @@ Ext.define('CustomApp', {
                 var pid = record.get('PortfolioItem');
                 var pi_name = record.get('PortfolioItemName');
                 var pi_preliminary_est = record.get('PreliminaryEstimate');
-                if (pi_preliminary_est > 0){
-                    pi_preliminary_est = "<br>PreliminaryEstimate: " + pi_preliminary_est;
-                }
                 var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
                 var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
-                return Ext.String.format("{0}: {1}{2}<br>PlanEstimate Total: {3} ({4} Accepted)",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
+                var pi_state = record.get('State');
+                return Ext.String.format("{0}: {1}<br> Preliminary Estimate {2}<br> PlanEstimate: {3} ({4})",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
             }
         });
         
