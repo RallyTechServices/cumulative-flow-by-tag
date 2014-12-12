@@ -373,9 +373,11 @@ Ext.define('CustomApp', {
         return {
             chart: {
                 zoomType: 'xy',
-                height: chartHeight
+                height: chartHeight,
+                //width: '90%'
             },
             height: chartHeight,
+            width: '90%',
             title: {
                 text: projectName + ' Cumulative Flow by Tags'
             },
@@ -461,7 +463,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem'],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
@@ -503,7 +505,7 @@ Ext.define('CustomApp', {
             itemId: 'chart-grid',
             store: store,
             margin: 25,
-            width: '100%',
+            width: '90%',
             columnCfgs: chart.calculator.gridStoreData.columnCfgs,
             showPagingToolbar: true,
             pagingToolbarCfg: {

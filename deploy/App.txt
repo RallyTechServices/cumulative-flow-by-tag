@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 11 2014 18:03:40 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 10:09:30 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 11 2014 18:03:40 GMT-0700 (MST)";
-        var CHECKSUM = 30457901443;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 10:09:30 GMT-0700 (MST)";
+        var CHECKSUM = 30595134855;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -901,9 +901,11 @@ Ext.define('CustomApp', {
         return {
             chart: {
                 zoomType: 'xy',
-                height: chartHeight
+                height: chartHeight,
+                //width: '90%'
             },
             height: chartHeight,
+            width: '90%',
             title: {
                 text: projectName + ' Cumulative Flow by Tags'
             },
@@ -989,7 +991,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem'],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
@@ -1031,7 +1033,7 @@ Ext.define('CustomApp', {
             itemId: 'chart-grid',
             store: store,
             margin: 25,
-            width: '100%',
+            width: '90%',
             columnCfgs: chart.calculator.gridStoreData.columnCfgs,
             showPagingToolbar: true,
             pagingToolbarCfg: {
