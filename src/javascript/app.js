@@ -487,46 +487,61 @@ Ext.define('CustomApp', {
             this.down('#tags-label').hide();
         }
     },
+    _getTreeColumns: function(tree_data_hash){
+        this.logger.log('_getTreeColumns');
+        var unwanted_keys = ['ObjectID','FormattedID','Name'];
+        var columns = [{
+            xtype: 'treecolumn',
+            text: 'FormattedID',
+            dataIndex: 'ObjectID',
+            renderer: function(v,m,r){
+                return r.get('FormattedID');
+            }
+        },{
+                text: 'Name',
+                dataIndex: 'Name',
+                flex: 1
+        },{
+            text: 'PlanEstimate (Points Accepted)',
+            dataIndex: 'PlanEstimate',
+        },{
+            text: 'State',
+            dataIndex: 'State',
+        },{
+            text: 'Preliminary Estimate',
+            dataIndex: 'PreliminaryEstimate',
+        }];
+
+        return columns;        
+    },
     _displayGrid: function(){
         this.logger.log('_displayGrid');
         var chart = this.down('#rally-chart');
-       
-        var store = Ext.create('Rally.data.custom.Store',{
-            data: chart.calculator.gridStoreData.data,
-            pageSize: 200,
-            groupField: 'PortfolioItem',
-            getGroupString: function(record) {
-                var pid = record.get('PortfolioItem');
-                var pi_name = record.get('PortfolioItemName');
-                var pi_preliminary_est = record.get('PreliminaryEstimate');
-                var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
-                var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
-                var pi_state = record.get('State');
-                return Ext.String.format("{0}: {1}<br> Preliminary Estimate {2}<br> PlanEstimate: {3} ({4})",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
-            }
-        });
         
-        if (this.down('#chart-grid')){
-            this.down('#chart-grid').destroy();
-        }
+        var tree_store_hash = Rally.technicalservices.util.TreeBuilding.constructRootItemsFromHashes(chart.calculator.gridStoreData.data);
+        var fields = Object.keys(tree_store_hash[0]);
+
+         Ext.define('TSTreeModel', {
+                extend: 'Ext.data.Model',
+                fields: fields
+            });
+            
+            var tree_store = Ext.create('Ext.data.TreeStore',{
+                model: TSTreeModel,
+                root: {
+                    expanded: false,
+                    children: tree_store_hash
+                }
+            });
+
         
         this.down('#grid_box').add({
-            xtype: 'rallygrid',
-            itemId: 'chart-grid',
-            store: store,
-            margin: 25,
-            width: '90%',
-            columnCfgs: chart.calculator.gridStoreData.columnCfgs,
-            showPagingToolbar: true,
-            features:  [{
-                   ftype: 'groupingsummary', 
-                   groupHeaderTpl: '{name}'
-            }],
-            groupField: 'PortfolioItem',
-            pagingToolbarCfg: {
-                store: store,
-                pageSizes: [100,200,500,1000]
-            }
+            xtype: 'treepanel',
+            width: "90%",
+            store: tree_store,
+            cls: 'rally-grid',
+            rootVisible: false,
+           columns: this._getTreeColumns(tree_store_hash)
         });
     },
     _drillDown: function(){
