@@ -56,11 +56,12 @@ Ext.define("CumulativeFlowCalculator", {
          });
          calcs.categories = new_categories;
          
+         var remove_series = ['DerivedLeafStoryPlanEstimateTotal','DerivedPreliminaryEstimate','PlanEstimate'];
          for (var i = calcs.series.length-1; i >= 0; i--){
              if (calcs.series[i].name != 'TotalEstimated'){
                  calcs.series[i].zIndex = 1; 
              } 
-             if (calcs.series[i].name == 'DerivedLeafStoryPlanEstimateTotal' || calcs.series[i].name == 'DerivedPreliminaryEstimate'){
+             if (Ext.Array.contains(remove_series,calcs.series[i].name)){
                  calcs.series.splice(i,1);
              }
          }
@@ -326,15 +327,18 @@ Ext.define("CumulativeFlowCalculator", {
      _buildGridStore: function(snapshots){
          var data = [];
          var columnConfigs = [
-             {text: 'FormattedID', dataIndex: 'FormattedID'},
+             {text: 'FormattedID', dataIndex: 'ObjectID', renderer: function(v,m,r){
+                 return r.get('FormattedID');
+             }},
              {text: 'Name', dataIndex: 'Name', flex: 1},
-           //  {text: 'Type', dataIndex: 'Type'},
-             {text: 'Preliminary Estimate', dataIndex: 'PreliminaryEstimate'},
-             {text: 'LeafStory PlanEstimate Total', dataIndex: 'LeafStoryPlanEstimateTotal'},
-             {text: 'State', dataIndex: 'State'},
              {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
              {text: 'ScheduleState', dataIndex: 'ScheduleState'},
-             {text: 'PortfolioItem Ancestor', dataIndex: 'PortfolioItem'}
+//             {text: 'PortfolioItem', dataIndex: 'PortfolioItem'},
+//             {text: 'State', dataIndex: 'State'},
+//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
+//             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
+//             {text: 'PortfolioItemFormattedID', dataIndex: 'PortfolioItem'},
+//             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
          ]; 
          
          var portfolioItems = {};
@@ -342,45 +346,56 @@ Ext.define("CumulativeFlowCalculator", {
              var snap_date = new Date(snap._ValidTo);
              if (/^9999/.test(snap._ValidTo)){
                  var type = snap._TypeHierarchy.slice(-1)[0];
-                 var rec = { 
-                         "FormattedID":snap.FormattedID,
-                         "Name": snap.Name,
-                         "PreliminaryEstimate": '',
-                         "LeafStoryPlanEstimateTotal": '',
-                         "PlanEstimate": '',
-                         "State": '',
-                         "ScheduleState": '',
-                         "PortfolioItem": ''
-                 };
+
                  if (/^PortfolioItem/.test(type)){
-                     portfolioItems[snap.ObjectID] = snap.FormattedID;
+                     portfolioItems[snap.ObjectID] = snap;
+                 }else {
+                     var rec = { 
+                             "ObjectID": snap.ObjectID,
+                             "FormattedID":snap.FormattedID,
+                             "Name": snap.Name,
+                             "PlanEstimate": '',
+                             "ScheduleState": '',
+                             "PortfolioItem": '',
+                             "PortfolioItemName": '',
+                             "State": '',
+                             "PreliminaryEstimate": '',
+                             "LeafStoryPlanEstimateTotal": '',
+                             "AcceptedLeafStoryPlanEstimateTotal": ''
+                     };
+                     if (snap.PlanEstimate){
+                         rec['PlanEstimate'] = snap.PlanEstimate;
+                     }
+                     if (snap.ScheduleState){
+                         rec['ScheduleState'] = snap.ScheduleState;
+                     }
+                     if (snap.PortfolioItem){
+                         rec['PortfolioItem'] = snap.PortfolioItem; 
+                     }
+                     data.push(rec);
                  }
-                 if (snap.PreliminaryEstimate){
-                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
-                 }
-                 if (snap.LeafStoryPlanEstimateTotal){
-                     rec['LeafStoryPlanEstimateTotal'] = snap.LeafStoryPlanEstimateTotal;
-                 }
-                 if (snap.PlanEstimate){
-                     rec['PlanEstimate'] = snap.PlanEstimate;
-                 }
-                 if (snap.State){
-                     rec['State'] = snap.State;
-                 }
-                 if (snap.ScheduleState){
-                     rec['ScheduleState'] = snap.ScheduleState;
-                 }
-                 if (snap.PortfolioItem){
-                     rec['PortfolioItem'] = snap.PortfolioItem; 
-                 }
-                 data.push(rec);
              }
          },this);
          
          //Now hydrate the portfolio items
          Ext.each(data, function(rec){
              if (Number(rec.PortfolioItem) > 0){
-                 rec.PortfolioItem = portfolioItems[rec.PortfolioItem];
+                 var pi = portfolioItems[rec.PortfolioItem];
+                 rec.PortfolioItem = pi.FormattedID;
+                 rec.PortfolioItemName = pi.Name;
+                 if (pi.PreliminaryEstimate){
+                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                 }
+                 if (pi.LeafStoryPlanEstimateTotal){
+                     rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
+                 }
+                 if (pi.AcceptedLeafStoryPlanEstimateTotal){
+                     rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
+                 }
+                 if (pi.State){
+                     rec['State'] = pi.State;
+                 }
+
              }
          },this);
          return {data: data, columnCfgs: columnConfigs}; 

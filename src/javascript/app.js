@@ -373,9 +373,11 @@ Ext.define('CustomApp', {
         return {
             chart: {
                 zoomType: 'xy',
-                height: chartHeight
+                height: chartHeight,
+                //width: '90%'
             },
             height: chartHeight,
+            width: '90%',
             title: {
                 text: projectName + ' Cumulative Flow by Tags'
             },
@@ -461,7 +463,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem'],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
@@ -491,9 +493,21 @@ Ext.define('CustomApp', {
        
         var store = Ext.create('Rally.data.custom.Store',{
             data: chart.calculator.gridStoreData.data,
-            pageSize: 200
-            
+            pageSize: 200,
+            groupField: 'PortfolioItem',
+            getGroupString: function(record) {
+                var pid = record.get('PortfolioItem');
+                var pi_name = record.get('PortfolioItemName');
+                var pi_preliminary_est = record.get('PreliminaryEstimate');
+                if (pi_preliminary_est > 0){
+                    pi_preliminary_est = "<br>PreliminaryEstimate: " + pi_preliminary_est;
+                }
+                var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
+                var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
+                return Ext.String.format("{0}: {1}{2}<br>PlanEstimate Total: {3} ({4} Accepted)",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
+            }
         });
+        
         if (this.down('#chart-grid')){
             this.down('#chart-grid').destroy();
         }
@@ -503,9 +517,14 @@ Ext.define('CustomApp', {
             itemId: 'chart-grid',
             store: store,
             margin: 25,
-            width: '100%',
+            width: '90%',
             columnCfgs: chart.calculator.gridStoreData.columnCfgs,
             showPagingToolbar: true,
+            features:  [{
+                   ftype: 'groupingsummary', 
+                   groupHeaderTpl: '{name}'
+            }],
+            groupField: 'PortfolioItem',
             pagingToolbarCfg: {
                 store: store,
                 pageSizes: [100,200,500,1000]
