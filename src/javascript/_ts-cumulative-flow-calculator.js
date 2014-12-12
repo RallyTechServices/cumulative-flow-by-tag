@@ -111,17 +111,12 @@ Ext.define("CumulativeFlowCalculator", {
                 points.push({x: i, y: y});
             }
         }
+        if (points.length == 0){
+            return null; 
+        }
+        
         var slope_index = Math.round(points.length * .33);
         data[points[slope_index].x] = points[slope_index].y;
-        
-//        var delta_days_actual_to_0 = this.actualPoints/slope;
-//        var delta_days_actual_to_start = actual_index;
-//        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
-//
-//        var arbitrary_index = this.actualIndex - target_delta_days;  
-//        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
-//        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
-//        data[arbitrary_index] = arbitrary_points;
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
@@ -269,19 +264,15 @@ Ext.define("CumulativeFlowCalculator", {
              f: 'sum',
          });
 
+         metrics.push({
+             field: 'PlanEstimate',
+             as: 'PlanEstimate',
+             f: 'sum'
+         });
+
          return metrics; 
          
      },
-//     getSummaryMetricsConfig: function(){
-//         return [{
-//             field: 'DerivedLeafStoryPlanEstimateTotal',
-//             f: 'sum',
-//         },{
-//             field: 'DerivedPreliminaryEstimate',
-//             f: 'sum',
-//         }];
-//         
-//     },
        getDerivedFieldsOnInput: function(){
            return [{
                f: this.getDerivedPreliminaryEstimate,
@@ -313,7 +304,7 @@ Ext.define("CumulativeFlowCalculator", {
          return 0;
      },
      getTotalEstimated: function(snapshot,index,metrics,seriesData){
-         return Math.max(seriesData[index].DerivedPreliminaryEstimate,seriesData[index].DerivedLeafStoryPlanEstimateTotal);
+         return Ext.Array.max([seriesData[index].DerivedPreliminaryEstimate,seriesData[index].DerivedLeafStoryPlanEstimateTotal,seriesData[index].PlanEstimate]);
      },
      calcTotalPoints: function(calcs){
          Ext.each(calcs.series, function(s){

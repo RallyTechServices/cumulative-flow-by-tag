@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 11 2014 17:38:07 GMT-0700 (MST) -->
+    <!--  Build Date: Thu Dec 11 2014 18:03:40 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 11 2014 17:38:07 GMT-0700 (MST)";
-        var CHECKSUM = 31691497181;
+        var APP_BUILD_DATE = "Thu Dec 11 2014 18:03:40 GMT-0700 (MST)";
+        var CHECKSUM = 30457901443;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -128,17 +128,12 @@ Ext.define("CumulativeFlowCalculator", {
                 points.push({x: i, y: y});
             }
         }
+        if (points.length == 0){
+            return null; 
+        }
+        
         var slope_index = Math.round(points.length * .33);
         data[points[slope_index].x] = points[slope_index].y;
-        
-//        var delta_days_actual_to_0 = this.actualPoints/slope;
-//        var delta_days_actual_to_start = actual_index;
-//        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
-//
-//        var arbitrary_index = this.actualIndex - target_delta_days;  
-//        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
-//        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
-//        data[arbitrary_index] = arbitrary_points;
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
@@ -286,19 +281,15 @@ Ext.define("CumulativeFlowCalculator", {
              f: 'sum',
          });
 
+         metrics.push({
+             field: 'PlanEstimate',
+             as: 'PlanEstimate',
+             f: 'sum'
+         });
+
          return metrics; 
          
      },
-//     getSummaryMetricsConfig: function(){
-//         return [{
-//             field: 'DerivedLeafStoryPlanEstimateTotal',
-//             f: 'sum',
-//         },{
-//             field: 'DerivedPreliminaryEstimate',
-//             f: 'sum',
-//         }];
-//         
-//     },
        getDerivedFieldsOnInput: function(){
            return [{
                f: this.getDerivedPreliminaryEstimate,
@@ -330,7 +321,7 @@ Ext.define("CumulativeFlowCalculator", {
          return 0;
      },
      getTotalEstimated: function(snapshot,index,metrics,seriesData){
-         return Math.max(seriesData[index].DerivedPreliminaryEstimate,seriesData[index].DerivedLeafStoryPlanEstimateTotal);
+         return Ext.Array.max([seriesData[index].DerivedPreliminaryEstimate,seriesData[index].DerivedLeafStoryPlanEstimateTotal,seriesData[index].PlanEstimate]);
      },
      calcTotalPoints: function(calcs){
          Ext.each(calcs.series, function(s){
