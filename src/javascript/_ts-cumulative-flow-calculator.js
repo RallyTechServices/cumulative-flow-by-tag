@@ -89,13 +89,13 @@ Ext.define("CumulativeFlowCalculator", {
         data[actual_index] = this.actualPoints;
         data[calcs.categories.length-1] = this.totalPoints;
         var delta_points = data[calcs.categories.length-1] - data[actual_index];
-        
+
         //calculate velocity and slope of the line
-        var endDate = calcs.categories[calcs.categories.length-1];
-        var startDate = calcs.categories[actual_index];
-        var delta_days = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
-        var delta_weeks = Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate), 'week');
-        
+        var endDate = Rally.util.DateTime.fromIsoString(calcs.categories[calcs.categories.length-1]);
+        var startDate = Rally.util.DateTime.fromIsoString(calcs.categories[actual_index]);
+        var delta_days = calcs.categories.length-1 - actual_index;   //Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
+        var delta_weeks = Rally.util.DateTime.getDifference(endDate,startDate, 'week');
+        console.log(endDate, startDate, delta_weeks);
         
         var slope = delta_points/delta_days;  
         var velocity = Math.round(delta_points/delta_weeks);
@@ -104,14 +104,24 @@ Ext.define("CumulativeFlowCalculator", {
             return null; 
         }
         
-        var delta_days_actual_to_0 = this.actualPoints/slope;
-        var delta_days_actual_to_start = actual_index;
-        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
-
-        var arbitrary_index = this.actualIndex - target_delta_days;  
-        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
-        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
-        data[arbitrary_index] = arbitrary_points;
+        var points = [];
+        for (var i = actual_index; i > 0; i--){
+            y = this.actualPoints - slope*(actual_index - i);
+            if (y > 0){
+                points.push({x: i, y: y});
+            }
+        }
+        var slope_index = Math.round(points.length * .33);
+        data[points[slope_index].x] = points[slope_index].y;
+        
+//        var delta_days_actual_to_0 = this.actualPoints/slope;
+//        var delta_days_actual_to_start = actual_index;
+//        var target_delta_days = Math.round(Math.min(delta_days_actual_to_0,delta_days_actual_to_start)*.33);  
+//
+//        var arbitrary_index = this.actualIndex - target_delta_days;  
+//        var arbitrary_diff = Rally.util.DateTime.getDifference(new Date(startDate), new Date(calcs.categories[arbitrary_index]),'day');
+//        var arbitrary_points = this.actualPoints - slope * arbitrary_diff ;
+//        data[arbitrary_index] = arbitrary_points;
         
          var series = {
                  name: Ext.String.format('Remaining (velocity: {0})',velocity),
