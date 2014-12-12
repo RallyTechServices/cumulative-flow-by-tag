@@ -381,23 +381,28 @@ Ext.define("CumulativeFlowCalculator", {
          Ext.each(data, function(rec){
              if (Number(rec.PortfolioItem) > 0){
                  var pi = portfolioItems[rec.PortfolioItem];
-                 rec.PortfolioItem = pi.FormattedID;
-                 rec.PortfolioItemName = pi.Name;
-                 if (pi.PreliminaryEstimate){
-                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                 if (pi) {
+                     rec.PortfolioItem = pi.FormattedID;
+                     rec.PortfolioItemName = pi.Name;
+                     if (pi.PreliminaryEstimate){
+                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                     }
+                     if (pi.LeafStoryPlanEstimateTotal){
+                         rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
+                     }
+                     if (pi.AcceptedLeafStoryPlanEstimateTotal){
+                         rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
+                     }
+                     if (pi.State){
+                         rec['State'] = pi.State;
+                     }
+                 } else {
+                     //console.log('PortfolioItem not found (' + rec.PortfolioItem + ')');
+                     rec.PortfolioItemName = 'PortfolioItem not found (' + rec.PortfolioItem + ')';
                  }
-                 if (pi.LeafStoryPlanEstimateTotal){
-                     rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
-                 }
-                 if (pi.AcceptedLeafStoryPlanEstimateTotal){
-                     rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
-                 }
-                 if (pi.State){
-                     rec['State'] = pi.State;
-                 }
-
              }
          },this);
+         //console.log(data);
          return {data: data, columnCfgs: columnConfigs}; 
      }
  });
