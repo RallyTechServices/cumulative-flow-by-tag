@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 10:09:30 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 11:25:14 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 10:09:30 GMT-0700 (MST)";
-        var CHECKSUM = 30595134855;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 11:25:14 GMT-0700 (MST)";
+        var CHECKSUM = 33369685407;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -73,11 +73,12 @@ Ext.define("CumulativeFlowCalculator", {
          });
          calcs.categories = new_categories;
          
+         var remove_series = ['DerivedLeafStoryPlanEstimateTotal','DerivedPreliminaryEstimate','PlanEstimate'];
          for (var i = calcs.series.length-1; i >= 0; i--){
              if (calcs.series[i].name != 'TotalEstimated'){
                  calcs.series[i].zIndex = 1; 
              } 
-             if (calcs.series[i].name == 'DerivedLeafStoryPlanEstimateTotal' || calcs.series[i].name == 'DerivedPreliminaryEstimate'){
+             if (Ext.Array.contains(remove_series,calcs.series[i].name)){
                  calcs.series.splice(i,1);
              }
          }
@@ -343,15 +344,18 @@ Ext.define("CumulativeFlowCalculator", {
      _buildGridStore: function(snapshots){
          var data = [];
          var columnConfigs = [
-             {text: 'FormattedID', dataIndex: 'FormattedID'},
+             {text: 'FormattedID', dataIndex: 'ObjectID', renderer: function(v,m,r){
+                 return r.get('FormattedID');
+             }},
              {text: 'Name', dataIndex: 'Name', flex: 1},
-           //  {text: 'Type', dataIndex: 'Type'},
-             {text: 'Preliminary Estimate', dataIndex: 'PreliminaryEstimate'},
-             {text: 'LeafStory PlanEstimate Total', dataIndex: 'LeafStoryPlanEstimateTotal'},
-             {text: 'State', dataIndex: 'State'},
              {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
              {text: 'ScheduleState', dataIndex: 'ScheduleState'},
-             {text: 'PortfolioItem Ancestor', dataIndex: 'PortfolioItem'}
+//             {text: 'PortfolioItem', dataIndex: 'PortfolioItem'},
+//             {text: 'State', dataIndex: 'State'},
+//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
+//             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
+//             {text: 'PortfolioItemFormattedID', dataIndex: 'PortfolioItem'},
+//             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
          ]; 
          
          var portfolioItems = {};
@@ -359,45 +363,56 @@ Ext.define("CumulativeFlowCalculator", {
              var snap_date = new Date(snap._ValidTo);
              if (/^9999/.test(snap._ValidTo)){
                  var type = snap._TypeHierarchy.slice(-1)[0];
-                 var rec = { 
-                         "FormattedID":snap.FormattedID,
-                         "Name": snap.Name,
-                         "PreliminaryEstimate": '',
-                         "LeafStoryPlanEstimateTotal": '',
-                         "PlanEstimate": '',
-                         "State": '',
-                         "ScheduleState": '',
-                         "PortfolioItem": ''
-                 };
+
                  if (/^PortfolioItem/.test(type)){
-                     portfolioItems[snap.ObjectID] = snap.FormattedID;
+                     portfolioItems[snap.ObjectID] = snap;
+                 }else {
+                     var rec = { 
+                             "ObjectID": snap.ObjectID,
+                             "FormattedID":snap.FormattedID,
+                             "Name": snap.Name,
+                             "PlanEstimate": '',
+                             "ScheduleState": '',
+                             "PortfolioItem": '',
+                             "PortfolioItemName": '',
+                             "State": '',
+                             "PreliminaryEstimate": '',
+                             "LeafStoryPlanEstimateTotal": '',
+                             "AcceptedLeafStoryPlanEstimateTotal": ''
+                     };
+                     if (snap.PlanEstimate){
+                         rec['PlanEstimate'] = snap.PlanEstimate;
+                     }
+                     if (snap.ScheduleState){
+                         rec['ScheduleState'] = snap.ScheduleState;
+                     }
+                     if (snap.PortfolioItem){
+                         rec['PortfolioItem'] = snap.PortfolioItem; 
+                     }
+                     data.push(rec);
                  }
-                 if (snap.PreliminaryEstimate){
-                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
-                 }
-                 if (snap.LeafStoryPlanEstimateTotal){
-                     rec['LeafStoryPlanEstimateTotal'] = snap.LeafStoryPlanEstimateTotal;
-                 }
-                 if (snap.PlanEstimate){
-                     rec['PlanEstimate'] = snap.PlanEstimate;
-                 }
-                 if (snap.State){
-                     rec['State'] = snap.State;
-                 }
-                 if (snap.ScheduleState){
-                     rec['ScheduleState'] = snap.ScheduleState;
-                 }
-                 if (snap.PortfolioItem){
-                     rec['PortfolioItem'] = snap.PortfolioItem; 
-                 }
-                 data.push(rec);
              }
          },this);
          
          //Now hydrate the portfolio items
          Ext.each(data, function(rec){
              if (Number(rec.PortfolioItem) > 0){
-                 rec.PortfolioItem = portfolioItems[rec.PortfolioItem];
+                 var pi = portfolioItems[rec.PortfolioItem];
+                 rec.PortfolioItem = pi.FormattedID;
+                 rec.PortfolioItemName = pi.Name;
+                 if (pi.PreliminaryEstimate){
+                     rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
+                 }
+                 if (pi.LeafStoryPlanEstimateTotal){
+                     rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
+                 }
+                 if (pi.AcceptedLeafStoryPlanEstimateTotal){
+                     rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
+                 }
+                 if (pi.State){
+                     rec['State'] = pi.State;
+                 }
+
              }
          },this);
          return {data: data, columnCfgs: columnConfigs}; 
@@ -1021,9 +1036,21 @@ Ext.define('CustomApp', {
        
         var store = Ext.create('Rally.data.custom.Store',{
             data: chart.calculator.gridStoreData.data,
-            pageSize: 200
-            
+            pageSize: 200,
+            groupField: 'PortfolioItem',
+            getGroupString: function(record) {
+                var pid = record.get('PortfolioItem');
+                var pi_name = record.get('PortfolioItemName');
+                var pi_preliminary_est = record.get('PreliminaryEstimate');
+                if (pi_preliminary_est > 0){
+                    pi_preliminary_est = "<br>PreliminaryEstimate: " + pi_preliminary_est;
+                }
+                var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
+                var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
+                return Ext.String.format("{0}: {1}{2}<br>PlanEstimate Total: {3} ({4} Accepted)",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
+            }
         });
+        
         if (this.down('#chart-grid')){
             this.down('#chart-grid').destroy();
         }
@@ -1036,6 +1063,11 @@ Ext.define('CustomApp', {
             width: '90%',
             columnCfgs: chart.calculator.gridStoreData.columnCfgs,
             showPagingToolbar: true,
+            features:  [{
+                   ftype: 'groupingsummary', 
+                   groupHeaderTpl: '{name}'
+            }],
+            groupField: 'PortfolioItem',
             pagingToolbarCfg: {
                 store: store,
                 pageSizes: [100,200,500,1000]

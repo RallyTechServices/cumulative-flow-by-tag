@@ -493,9 +493,21 @@ Ext.define('CustomApp', {
        
         var store = Ext.create('Rally.data.custom.Store',{
             data: chart.calculator.gridStoreData.data,
-            pageSize: 200
-            
+            pageSize: 200,
+            groupField: 'PortfolioItem',
+            getGroupString: function(record) {
+                var pid = record.get('PortfolioItem');
+                var pi_name = record.get('PortfolioItemName');
+                var pi_preliminary_est = record.get('PreliminaryEstimate');
+                if (pi_preliminary_est > 0){
+                    pi_preliminary_est = "<br>PreliminaryEstimate: " + pi_preliminary_est;
+                }
+                var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
+                var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
+                return Ext.String.format("{0}: {1}{2}<br>PlanEstimate Total: {3} ({4} Accepted)",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
+            }
         });
+        
         if (this.down('#chart-grid')){
             this.down('#chart-grid').destroy();
         }
@@ -508,6 +520,11 @@ Ext.define('CustomApp', {
             width: '90%',
             columnCfgs: chart.calculator.gridStoreData.columnCfgs,
             showPagingToolbar: true,
+            features:  [{
+                   ftype: 'groupingsummary', 
+                   groupHeaderTpl: '{name}'
+            }],
+            groupField: 'PortfolioItem',
             pagingToolbarCfg: {
                 store: store,
                 pageSizes: [100,200,500,1000]
