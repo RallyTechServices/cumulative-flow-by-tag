@@ -314,12 +314,31 @@ Ext.define("CumulativeFlowCalculator", {
          });
          return series; 
      },
+     _getPortfolioItemAncestorOid: function(snap, pids){
+         if (snap.PortfolioItem) {
+             return snap.PortfolioItem;  
+         }
+         for (var i=snap._ItemHierarchy.length; i > 0; i--){
+             if (Ext.Array.contains(pids, snap._ItemHierarchy[i])){
+                 return snap._ItemHierarchy[i];
+             }
+         }
+     },
      _buildGridStore: function(snapshots){
 
          var data_hash = {};  
+         var pids = [];  
+         Ext.each(snapshots, function(snap){
+             var type = snap._TypeHierarchy.slice(-1)[0];  
+             if (/^PortfolioItem/.test(type) && !Ext.Array.contains(pids, snap.ObjectID)){
+                 pids.push(snap.ObjectID);
+             }
+         },this);
+         
          Ext.each(snapshots, function(snap){
              if (/^9999/.test(snap._ValidTo)){
-                   var obj_id = snap.ObjectID
+                   var obj_id = snap.ObjectID;
+                   var type = snap._TypeHierarchy.slice(-1)[0];  
                    var rec = { 
                              "ObjectID": snap.ObjectID,
                              "FormattedID":snap.FormattedID,
@@ -339,10 +358,9 @@ Ext.define("CumulativeFlowCalculator", {
                      if (snap.AcceptedLeafStoryPlanEstimateTotal){
                          rec['AcceptedPlanEstimate'] = snap.AcceptedLeafStoryPlanEstimateTotal;
                      }
-                     if (snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]){
-                         rec['parent'] = snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]; 
+                     if (type == 'HierarchicalRequirement'){
+                         rec['parent'] = this._getPortfolioItemAncestorOid(snap,pids);
                      }
-
                      if (snap.State){
                          rec['State'] = snap.State;
                      }

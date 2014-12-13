@@ -498,7 +498,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal',lowest_pi],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal','_ItemHierarchy'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
