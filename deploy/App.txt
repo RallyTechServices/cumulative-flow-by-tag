@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 14:21:45 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 16:13:42 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 14:21:45 GMT-0700 (MST)";
-        var CHECKSUM = 34207938470;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 16:13:42 GMT-0700 (MST)";
+        var CHECKSUM = 44387770363;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -113,8 +113,7 @@ Ext.define("CumulativeFlowCalculator", {
         var startDate = Rally.util.DateTime.fromIsoString(calcs.categories[actual_index]);
         var delta_days = calcs.categories.length-1 - actual_index;   //Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
         var delta_weeks = Rally.util.DateTime.getDifference(endDate,startDate, 'week');
-        console.log(endDate, startDate, delta_weeks);
-        
+
         var slope = delta_points/delta_days;  
         var velocity = Math.round(delta_points/delta_weeks);
 
@@ -190,12 +189,8 @@ Ext.define("CumulativeFlowCalculator", {
          var data = []; 
          var num_velocity_periods = Rally.util.DateTime.getDifference(new Date(calcs.categories[calcs.categories.length-1]), new Date(calcs.categories[0]),'week')/2;
          var velocity = 0;
-         var firstInProgressi = 0;
          var states = this.getStateFieldValues(); 
-         var firstInState = [];
-         for (var i=0; i<states.length; i++){
-             firstInState[i] = -1;
-         }
+
          this.actualPoints = 0 ;
          this.actualIndex = 0; 
          var currentDate = new Date();
@@ -203,7 +198,7 @@ Ext.define("CumulativeFlowCalculator", {
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
-             console.log(d);
+
              if (d.getYear() >= currentDate.getYear() && 
                   d.getMonth() >= currentDate.getMonth() && 
                   d.getDate() >= currentDate.getDate()){
@@ -211,17 +206,19 @@ Ext.define("CumulativeFlowCalculator", {
                  break; 
              }
           };
-         // console.log('actual',currentDate, this.actualIndex, calcs.categories[this.actualIndex]);
+
           if (this.actualIndex == 0){
               this.actualIndex = calcs.categories.length-1;
           }
 
+         var in_progress_idx = Ext.Array.indexOf(states, this.InProgressName, 0); 
+         var firstInProgressi = calcs.categories.length + 1;
          Ext.each(calcs.series, function(s){
-             var idx = Ext.Array.indexOf(states, s.name, 0);
-             if (idx >= 0 && firstInState[idx] <0){
+             var current_state_idx = Ext.Array.indexOf(states, s.name, 0);
+             if (current_state_idx >= in_progress_idx){
                  for (var i=0; i<s.data.length; i++){
-                     if (s.data[i] > 0){
-                         firstInState[idx] = i;
+                     if (s.data[i] > 0 && i < firstInProgressi){
+                         firstInProgressi = i;
                          i = s.data.length; 
                      }
                  }
@@ -235,20 +232,8 @@ Ext.define("CumulativeFlowCalculator", {
                  this.actualPoints = s.data[this.actualIndex];
              }
          }, this);
-//         console.log('firstInState', firstInState);
          
-         //Get the date of first inprogress.  If that doesn't work, then get the first date of the next state
-         var actual_start_index = 0;  
-         var idx = Ext.Array.indexOf(states, this.InProgressName, 0);
-         
-         for (var j=idx; j<firstInState.length; j++){
-             if (firstInState[j] >= 0){
-                 actual_start_index = firstInState[j];
-                 j = firstInState.length; 
-             }
-         }
-         
-         data[actual_start_index] = 0;
+         data[firstInProgressi] = 0;
          data[this.actualIndex] = this.actualPoints; 
          velocity = Math.round(this.actualPoints/num_velocity_periods);  
          
@@ -364,69 +349,41 @@ Ext.define("CumulativeFlowCalculator", {
 //             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
          ]; 
          
-         var portfolioItems = {};
+         var data_hash = {};  
          Ext.each(snapshots, function(snap){
-             var snap_date = new Date(snap._ValidTo);
              if (/^9999/.test(snap._ValidTo)){
-                 var type = snap._TypeHierarchy.slice(-1)[0];
-
-                 if (/^PortfolioItem/.test(type)){
-                     portfolioItems[snap.ObjectID] = snap;
-                 }else {
-                     var rec = { 
+                   var obj_id = snap.ObjectID
+                   var rec = { 
                              "ObjectID": snap.ObjectID,
                              "FormattedID":snap.FormattedID,
                              "Name": snap.Name,
                              "PlanEstimate": '',
-                             "ScheduleState": '',
-                             "PortfolioItem": '',
-                             "PortfolioItemName": '',
+                             "parent": '',
                              "State": '',
-                             "PreliminaryEstimate": '',
-                             "LeafStoryPlanEstimateTotal": '',
-                             "AcceptedLeafStoryPlanEstimateTotal": ''
-                     };
+                             "PreliminaryEstimate": ''
+                   };
                      if (snap.PlanEstimate){
                          rec['PlanEstimate'] = snap.PlanEstimate;
                      }
-                     if (snap.ScheduleState){
-                         rec['ScheduleState'] = snap.ScheduleState;
+                     if (snap.LeafStoryPlanEstimateTotal){
+                         rec['PlanEstimate'] = Ext.String.format("{0} ({1})",snap.LeafStoryPlanEstimateTotal, Number(snap.AcceptedLeafStoryPlanEstimateTotal));
                      }
                      if (snap.PortfolioItem){
-                         rec['PortfolioItem'] = snap.PortfolioItem; 
+                         rec['parent'] = snap.PortfolioItem; 
                      }
-                     data.push(rec);
-                 }
+                     if (snap.State){
+                         rec['State'] = snap.State;
+                     }
+                     if (snap.ScheduleState){
+                         rec['State'] = snap.ScheduleState;
+                     }
+                    if (snap.PreliminaryEstimate){
+                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
+                     }
+                     data_hash[obj_id] = rec;
              }
          },this);
-         
-         //Now hydrate the portfolio items
-         Ext.each(data, function(rec){
-             if (Number(rec.PortfolioItem) > 0){
-                 var pi = portfolioItems[rec.PortfolioItem];
-                 if (pi) {
-                     rec.PortfolioItem = pi.FormattedID;
-                     rec.PortfolioItemName = pi.Name;
-                     if (pi.PreliminaryEstimate){
-                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
-                     }
-                     if (pi.LeafStoryPlanEstimateTotal){
-                         rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
-                     }
-                     if (pi.AcceptedLeafStoryPlanEstimateTotal){
-                         rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
-                     }
-                     if (pi.State){
-                         rec['State'] = pi.State;
-                     }
-                 } else {
-                     //console.log('PortfolioItem not found (' + rec.PortfolioItem + ')');
-                     rec.PortfolioItemName = 'PortfolioItem not found (' + rec.PortfolioItem + ')';
-                 }
-             }
-         },this);
-         //console.log(data);
-         return {data: data, columnCfgs: columnConfigs}; 
+         return {data: data_hash, columnCfgs: columnConfigs}; 
      }
  });
 /**
@@ -552,6 +509,197 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+/*
+ * A series of utilities to help construct trees
+ * with data gotten bottom or middle-up
+ * 
+ */
+ 
+Ext.define('Rally.technicalservices.util.TreeBuilding', {
+    singleton: true,
+    logger: new Rally.technicalservices.Logger(),
+    /*
+     * Given a hash of models (key = object id) that all know what
+     * their parent is (based on the "parent" field -- note lowercase)
+     * Return an array of models that are at the root level and
+     * have a "children" field (note lowercase)
+     * with appropriate items in an array 
+     */
+    constructRootItems:function(item_hash) {
+        var root_array = [];
+        Ext.Object.each(item_hash, function(oid,item){
+            if ( !item.get('children') ) { item.set('children',[]); }
+            var direct_parent = item.get('parent');
+            if (!direct_parent && !Ext.Array.contains(root_array,item)) {
+                root_array.push(item);
+            } else {
+                
+                var parent_oid =  direct_parent.ObjectID || direct_parent.get('ObjectID');
+                if (!item_hash[parent_oid]) {
+                    this.logger.log("Saved parent missing: ", parent_oid);
+                    if ( !Ext.Array.contains(root_array,item) ) {
+                        root_array.push(item);
+                    }
+                } else {
+                    var parent = item_hash[parent_oid];
+                    if ( !parent.get('children') ) { parent.set('children',[]); }
+                    var kids = parent.get('children');
+                    kids.push(item);
+                    parent.set('children',kids);
+                }
+            }
+        },this);
+        return root_array;
+    },
+    /*
+     * Given a hash of hashes (key = object id) that all know what
+     * their parent is (based on the "parent" field -- note lowercase)
+     * Return an array of models that are at the root level and
+     * have a "children" field (note lowercase)
+     * with appropriate items in an array 
+     */
+    constructRootItemsFromHashes:function(item_hash) {
+        var root_array = [];
+
+        Ext.Object.each(item_hash, function(oid,item){
+            if ( !item.children ) { item.children = []; }
+            var direct_parent = item.parent;
+            if (!direct_parent && !Ext.Array.contains(root_array,item)) {
+                root_array.push(item);
+            } else {
+                
+                if (!item_hash[direct_parent]) {
+                    this.logger.log("Saved parent missing: ", direct_parent);
+                    if ( !Ext.Array.contains(root_array,item) ) {
+                        root_array.push(item);
+                    }
+                } else {
+                    var parent = item_hash[direct_parent];
+                    if ( !parent.children ) { parent.children = []; }
+                    var kids = parent.children;
+                    kids.push(item);
+                    parent.children = kids;
+                }
+            }
+        },this);
+        return root_array;
+    },
+    /**
+     * Given an array of models, turn them into hashes
+     */
+    convertModelsToHashes: function(model_array) {
+        var hash_array = [];
+        Ext.Array.each(model_array,function(model){
+            if (this.isModel(model)) {
+                var model_as_hash = model.data;
+                model_as_hash.expanded = false;
+                model_as_hash.leaf = false;
+                
+                // children & parent are fields that are not a 
+                // part of the model def'n so getData doesn't provide them
+                if ( model.get('children') ) {
+                    model_as_hash.children = this.convertModelsToHashes(model.get('children'));
+                }
+                if ( model.get('parent') ) {
+                    if ( this.isModel(model.get('parent') ) ) {
+                        model_as_hash.parent = model.get('parent').getData();
+                    } else {
+                        model_as_hash.parent = model.get('parent');
+                    }
+                }
+
+                if (!model_as_hash.children || model_as_hash.children.length === 0 ) {
+                    model_as_hash.leaf = true;
+                }
+                
+                hash_array.push(model_as_hash);
+            } else {
+                hash_array.push(model);
+            }
+        },this);
+        return hash_array;
+    },
+    isModel: function(model){
+        return model && ( model instanceof Ext.data.Model );
+    },
+    /**
+     * Given an array of top-level models (will have field called 'children' holding more models),
+     * roll up the value in the bottom of the tree's field_name
+     * 
+     * Config object has these values:
+     * 
+     * @param [{Ext.data.model}] root_items
+     * @param {String} field_name
+     * @param {Boolean} leaves_only (true to ignore parent value, false to add children to parent's existing value)
+     * @param {String|fn} calculator [ 'count' ]
+     */
+    rollup: function(config){
+        Ext.Array.each(config.root_items,function(root_item){
+            this._setValueFromChildren(root_item,config.field_name,config.calculator,config.leaves_only);
+        },this);
+        return config.root_items;
+    },
+    _setValueFromChildren:function(parent_item,field_name,calculator,leaves_only){
+        var parent_value = parent_item.get(field_name) || 0;
+        if ( calculator ) {
+            parent_value = this._calculate(parent_item,calculator);
+        }
+        var children = parent_item.get('children') || [];
+        
+        if ( leaves_only && children.length > 0 ) { parent_value = 0; }
+
+        Ext.Array.each(children,function(child_item) {
+            this._setValueFromChildren(child_item,field_name,calculator,leaves_only);
+            var child_value = child_item.get(field_name) || 0;
+            if ( calculator && child_value == 0 ) {
+                child_value = this._calculate(child_item,calculator);
+            }
+            parent_value += child_value;
+        },this);
+        parent_item.set(field_name,parent_value);
+        return;
+    },
+    _calculate:function(item,calculator){
+        'use strict';
+        if ( calculator == 'count' ) {
+            return 1;
+        }
+        return calculator(item);
+        
+    },
+    /**
+     * Given an array of root items, find nodes in the tree where field_name contains field_value
+     * and prune them
+     * 
+     * @param {} root_items
+     * @param {} field_name
+     * @param {} field_value
+     * @return {}
+     */
+    pruneByFieldValue: function(root_items,field_name,field_value){
+        Ext.Array.each(root_items,function(root_item){
+            this._removeByFieldValue(root_items,root_item,field_name,field_value);
+        },this);
+        return root_items;
+    },
+    _removeByFieldValue: function(parent_array,parent_item,field_name,field_value){
+        var tester = new RegExp(field_value);
+        
+        if ( parent_item ) {
+            var value = parent_item.get(field_name) || "";
+            if ( tester.test(value) ) {
+                Ext.Array.remove(parent_array,parent_item);
+            } else {
+                var kids = parent_item.get('children') || [];
+                if ( kids.length > 0 ) {
+                    Ext.Array.each(kids, function(kid){
+                        this._removeByFieldValue(kids,kid,field_name,field_value);
+                    },this);
+                }
+            }
+        }
+    }
+});
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -1041,46 +1189,61 @@ Ext.define('CustomApp', {
             this.down('#tags-label').hide();
         }
     },
+    _getTreeColumns: function(tree_data_hash){
+        this.logger.log('_getTreeColumns');
+        var unwanted_keys = ['ObjectID','FormattedID','Name'];
+        var columns = [{
+            xtype: 'treecolumn',
+            text: 'FormattedID',
+            dataIndex: 'ObjectID',
+            renderer: function(v,m,r){
+                return r.get('FormattedID');
+            }
+        },{
+                text: 'Name',
+                dataIndex: 'Name',
+                flex: 1
+        },{
+            text: 'PlanEstimate (Points Accepted)',
+            dataIndex: 'PlanEstimate',
+        },{
+            text: 'State',
+            dataIndex: 'State',
+        },{
+            text: 'Preliminary Estimate',
+            dataIndex: 'PreliminaryEstimate',
+        }];
+
+        return columns;        
+    },
     _displayGrid: function(){
         this.logger.log('_displayGrid');
         var chart = this.down('#rally-chart');
-       
-        var store = Ext.create('Rally.data.custom.Store',{
-            data: chart.calculator.gridStoreData.data,
-            pageSize: 200,
-            groupField: 'PortfolioItem',
-            getGroupString: function(record) {
-                var pid = record.get('PortfolioItem');
-                var pi_name = record.get('PortfolioItemName');
-                var pi_preliminary_est = record.get('PreliminaryEstimate');
-                var pi_leaf_pe = record.get('LeafStoryPlanEstimateTotal');
-                var pi_accepted_leaf_pe = record.get('AcceptedLeafStoryPlanEstimateTotal');
-                var pi_state = record.get('State');
-                return Ext.String.format("{0}: {1}<br> Preliminary Estimate {2}<br> PlanEstimate: {3} ({4})",pid,pi_name,pi_preliminary_est, pi_leaf_pe, pi_accepted_leaf_pe) || 'No Portfolio Item';
-            }
-        });
         
-        if (this.down('#chart-grid')){
-            this.down('#chart-grid').destroy();
-        }
+        var tree_store_hash = Rally.technicalservices.util.TreeBuilding.constructRootItemsFromHashes(chart.calculator.gridStoreData.data);
+        var fields = Object.keys(tree_store_hash[0]);
+
+         Ext.define('TSTreeModel', {
+                extend: 'Ext.data.Model',
+                fields: fields
+            });
+            
+            var tree_store = Ext.create('Ext.data.TreeStore',{
+                model: TSTreeModel,
+                root: {
+                    expanded: false,
+                    children: tree_store_hash
+                }
+            });
+
         
         this.down('#grid_box').add({
-            xtype: 'rallygrid',
-            itemId: 'chart-grid',
-            store: store,
-            margin: 25,
-            width: '90%',
-            columnCfgs: chart.calculator.gridStoreData.columnCfgs,
-            showPagingToolbar: true,
-            features:  [{
-                   ftype: 'groupingsummary', 
-                   groupHeaderTpl: '{name}'
-            }],
-            groupField: 'PortfolioItem',
-            pagingToolbarCfg: {
-                store: store,
-                pageSizes: [100,200,500,1000]
-            }
+            xtype: 'treepanel',
+            width: "90%",
+            store: tree_store,
+            cls: 'rally-grid',
+            rootVisible: false,
+           columns: this._getTreeColumns(tree_store_hash)
         });
     },
     _drillDown: function(){

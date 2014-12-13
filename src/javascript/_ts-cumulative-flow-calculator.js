@@ -96,8 +96,7 @@ Ext.define("CumulativeFlowCalculator", {
         var startDate = Rally.util.DateTime.fromIsoString(calcs.categories[actual_index]);
         var delta_days = calcs.categories.length-1 - actual_index;   //Rally.util.DateTime.getDifference(new Date(endDate),new Date(startDate),'day');
         var delta_weeks = Rally.util.DateTime.getDifference(endDate,startDate, 'week');
-        console.log(endDate, startDate, delta_weeks);
-        
+
         var slope = delta_points/delta_days;  
         var velocity = Math.round(delta_points/delta_weeks);
 
@@ -173,12 +172,8 @@ Ext.define("CumulativeFlowCalculator", {
          var data = []; 
          var num_velocity_periods = Rally.util.DateTime.getDifference(new Date(calcs.categories[calcs.categories.length-1]), new Date(calcs.categories[0]),'week')/2;
          var velocity = 0;
-         var firstInProgressi = 0;
          var states = this.getStateFieldValues(); 
-         var firstInState = [];
-         for (var i=0; i<states.length; i++){
-             firstInState[i] = -1;
-         }
+
          this.actualPoints = 0 ;
          this.actualIndex = 0; 
          var currentDate = new Date();
@@ -186,7 +181,7 @@ Ext.define("CumulativeFlowCalculator", {
          for(var i=0; i< calcs.categories.length; i++){
              var d = new Date(calcs.categories[i]);
              data[i] = null; 
-             console.log(d);
+
              if (d.getYear() >= currentDate.getYear() && 
                   d.getMonth() >= currentDate.getMonth() && 
                   d.getDate() >= currentDate.getDate()){
@@ -194,17 +189,19 @@ Ext.define("CumulativeFlowCalculator", {
                  break; 
              }
           };
-         // console.log('actual',currentDate, this.actualIndex, calcs.categories[this.actualIndex]);
+
           if (this.actualIndex == 0){
               this.actualIndex = calcs.categories.length-1;
           }
 
+         var in_progress_idx = Ext.Array.indexOf(states, this.InProgressName, 0); 
+         var firstInProgressi = calcs.categories.length + 1;
          Ext.each(calcs.series, function(s){
-             var idx = Ext.Array.indexOf(states, s.name, 0);
-             if (idx >= 0 && firstInState[idx] <0){
+             var current_state_idx = Ext.Array.indexOf(states, s.name, 0);
+             if (current_state_idx >= in_progress_idx){
                  for (var i=0; i<s.data.length; i++){
-                     if (s.data[i] > 0){
-                         firstInState[idx] = i;
+                     if (s.data[i] > 0 && i < firstInProgressi){
+                         firstInProgressi = i;
                          i = s.data.length; 
                      }
                  }
@@ -218,20 +215,8 @@ Ext.define("CumulativeFlowCalculator", {
                  this.actualPoints = s.data[this.actualIndex];
              }
          }, this);
-//         console.log('firstInState', firstInState);
          
-         //Get the date of first inprogress.  If that doesn't work, then get the first date of the next state
-         var actual_start_index = 0;  
-         var idx = Ext.Array.indexOf(states, this.InProgressName, 0);
-         
-         for (var j=idx; j<firstInState.length; j++){
-             if (firstInState[j] >= 0){
-                 actual_start_index = firstInState[j];
-                 j = firstInState.length; 
-             }
-         }
-         
-         data[actual_start_index] = 0;
+         data[firstInProgressi] = 0;
          data[this.actualIndex] = this.actualPoints; 
          velocity = Math.round(this.actualPoints/num_velocity_periods);  
          
@@ -347,68 +332,40 @@ Ext.define("CumulativeFlowCalculator", {
 //             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
          ]; 
          
-         var portfolioItems = {};
+         var data_hash = {};  
          Ext.each(snapshots, function(snap){
-             var snap_date = new Date(snap._ValidTo);
              if (/^9999/.test(snap._ValidTo)){
-                 var type = snap._TypeHierarchy.slice(-1)[0];
-
-                 if (/^PortfolioItem/.test(type)){
-                     portfolioItems[snap.ObjectID] = snap;
-                 }else {
-                     var rec = { 
+                   var obj_id = snap.ObjectID
+                   var rec = { 
                              "ObjectID": snap.ObjectID,
                              "FormattedID":snap.FormattedID,
                              "Name": snap.Name,
                              "PlanEstimate": '',
-                             "ScheduleState": '',
-                             "PortfolioItem": '',
-                             "PortfolioItemName": '',
+                             "parent": '',
                              "State": '',
-                             "PreliminaryEstimate": '',
-                             "LeafStoryPlanEstimateTotal": '',
-                             "AcceptedLeafStoryPlanEstimateTotal": ''
-                     };
+                             "PreliminaryEstimate": ''
+                   };
                      if (snap.PlanEstimate){
                          rec['PlanEstimate'] = snap.PlanEstimate;
                      }
-                     if (snap.ScheduleState){
-                         rec['ScheduleState'] = snap.ScheduleState;
+                     if (snap.LeafStoryPlanEstimateTotal){
+                         rec['PlanEstimate'] = Ext.String.format("{0} ({1})",snap.LeafStoryPlanEstimateTotal, Number(snap.AcceptedLeafStoryPlanEstimateTotal));
                      }
                      if (snap.PortfolioItem){
-                         rec['PortfolioItem'] = snap.PortfolioItem; 
+                         rec['parent'] = snap.PortfolioItem; 
                      }
-                     data.push(rec);
-                 }
+                     if (snap.State){
+                         rec['State'] = snap.State;
+                     }
+                     if (snap.ScheduleState){
+                         rec['State'] = snap.ScheduleState;
+                     }
+                    if (snap.PreliminaryEstimate){
+                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
+                     }
+                     data_hash[obj_id] = rec;
              }
          },this);
-         
-         //Now hydrate the portfolio items
-         Ext.each(data, function(rec){
-             if (Number(rec.PortfolioItem) > 0){
-                 var pi = portfolioItems[rec.PortfolioItem];
-                 if (pi) {
-                     rec.PortfolioItem = pi.FormattedID;
-                     rec.PortfolioItemName = pi.Name;
-                     if (pi.PreliminaryEstimate){
-                         rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[pi.PreliminaryEstimate];
-                     }
-                     if (pi.LeafStoryPlanEstimateTotal){
-                         rec['LeafStoryPlanEstimateTotal'] = pi.LeafStoryPlanEstimateTotal;
-                     }
-                     if (pi.AcceptedLeafStoryPlanEstimateTotal){
-                         rec['AcceptedLeafStoryPlanEstimateTotal'] = pi.AcceptedLeafStoryPlanEstimateTotal;
-                     }
-                     if (pi.State){
-                         rec['State'] = pi.State;
-                     }
-                 } else {
-                     //console.log('PortfolioItem not found (' + rec.PortfolioItem + ')');
-                     rec.PortfolioItemName = 'PortfolioItem not found (' + rec.PortfolioItem + ')';
-                 }
-             }
-         },this);
-         //console.log(data);
-         return {data: data, columnCfgs: columnConfigs}; 
+         return {data: data_hash, columnCfgs: columnConfigs}; 
      }
  });
