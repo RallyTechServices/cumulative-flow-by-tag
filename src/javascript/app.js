@@ -282,9 +282,10 @@ Ext.define('CustomApp', {
             return; 
         }
 
-        if (this.down('#chart-grid')){
-            this.down('#chart-grid').destroy();
+        if (this.down('#tree-grid')){
+            this.down('#tree-grid').destroy();
         }
+        this.down('#sub_chart_box').removeAll();
         
         var tags = this._getTagObjectIDs(); 
         var pids = this._getPortfolioItemIDs();
@@ -297,19 +298,52 @@ Ext.define('CustomApp', {
             scope:this,
             success: function(data){
                 this.logger.log('_run Success', data);
-                this.portfolioItemIds = this._getPortfolioItemIds(data);
-                this.down('#sub_chart_box').removeAll();
+                if (tags.length > 0){
+                    this._getInheritedPortfolioItemIds(data).then({
+                        scope: this,
+                        success: function(data){
+                            this.logger.log('_getInheritedPortfolioItemIds Success', data);
+                            this.portfolioItemIds = this._getPortfolioItemIds(data);
+                            this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
+                        },
+                        failure: function(error){
+                            alert(error);
+                        }
+                    });
+                } else {
+                    this.portfolioItemIds = this._getPortfolioItemIds(data);
+                    this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
+                }
                 
-                this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
             },
             failure: function(error, success){
                 alert(error);
             }
         });
     },
-    _getPortfolioItemIds: function(data){
+    _getInheritedPortfolioItemIds: function(data){
+        var deferred = Ext.create('Deft.Deferred');
+        var pids = []; 
+        
+        Ext.each(data, function(d){
+            pids.push(d.get('ObjectID'));
+        }, this);
+        
+        this._fetchPortfolioItemData([], pids).then({
+            scope: this,
+            success: function(data){
+                deferred.resolve(data);
+            },
+            failure: function(error){
+                deferred.reject('_getInheritedPortfolioItemIds: ' + error);
+            }
+        });
+        return deferred; 
+    },
+    _getPortfolioItemIds: function(data, tags){
         //Now parse through the data to get the portfolio item object ids that we want
         var pids = [];
+        
         Ext.each(data, function(d){
             var pi_type = d.get('_TypeHierarchy').slice(-1)[0];
             if (pi_type == this._getLowestLevelPortfolioItemType()){
@@ -456,14 +490,15 @@ Ext.define('CustomApp', {
     
     _getStoreConfig: function(portfolioItemObjectIds, projectID){
         this.logger.log('_getStoreConfig', portfolioItemObjectIds);
+        var lowest_pi = this._getLowestLevelPortfolioItemType();
         return {
             find: {
-                _TypeHierarchy: {$in: ['HierarchicalRequirement', this._getLowestLevelPortfolioItemType()]},
+                _TypeHierarchy: {$in: ['HierarchicalRequirement', lowest_pi]},
                 Children: null,
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal'],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal',lowest_pi],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
@@ -502,8 +537,11 @@ Ext.define('CustomApp', {
                 dataIndex: 'Name',
                 flex: 1
         },{
-            text: 'PlanEstimate (Points Accepted)',
+            text: 'PlanEstimate',
             dataIndex: 'PlanEstimate',
+        },{
+            text: 'Accepted PlanEstimate',
+            dataIndex: 'AcceptedPlanEstimate'
         },{
             text: 'State',
             dataIndex: 'State',
@@ -538,6 +576,7 @@ Ext.define('CustomApp', {
         this.down('#grid_box').add({
             xtype: 'treepanel',
             width: "90%",
+            itemId: 'tree-grid',
             store: tree_store,
             cls: 'rally-grid',
             rootVisible: false,

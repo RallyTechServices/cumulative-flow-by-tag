@@ -315,23 +315,7 @@ Ext.define("CumulativeFlowCalculator", {
          return series; 
      },
      _buildGridStore: function(snapshots){
-         var data = [];
-         var columnConfigs = [
-             {text: 'FormattedID', dataIndex: 'ObjectID', renderer: function(v,m,r){
-                 return r.get('FormattedID');
-             }},
-             {text: 'Name', dataIndex: 'Name', flex: 1},
-//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
-             {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
-             {text: 'State/ScheduleState', dataIndex: 'ScheduleState'},
-//             {text: 'PortfolioItem', dataIndex: 'PortfolioItem'},
-//             {text: 'State', dataIndex: 'State'},
-//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
-//             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
-//             {text: 'PortfolioItemFormattedID', dataIndex: 'PortfolioItem'},
-//             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
-         ]; 
-         
+
          var data_hash = {};  
          Ext.each(snapshots, function(snap){
              if (/^9999/.test(snap._ValidTo)){
@@ -341,6 +325,7 @@ Ext.define("CumulativeFlowCalculator", {
                              "FormattedID":snap.FormattedID,
                              "Name": snap.Name,
                              "PlanEstimate": '',
+                             "AcceptedPlanEstimate": '',
                              "parent": '',
                              "State": '',
                              "PreliminaryEstimate": ''
@@ -349,16 +334,23 @@ Ext.define("CumulativeFlowCalculator", {
                          rec['PlanEstimate'] = snap.PlanEstimate;
                      }
                      if (snap.LeafStoryPlanEstimateTotal){
-                         rec['PlanEstimate'] = Ext.String.format("{0} ({1})",snap.LeafStoryPlanEstimateTotal, Number(snap.AcceptedLeafStoryPlanEstimateTotal));
+                         rec['PlanEstimate'] = snap.LeafStoryPlanEstimateTotal;
                      }
-                     if (snap.PortfolioItem){
-                         rec['parent'] = snap.PortfolioItem; 
+                     if (snap.AcceptedLeafStoryPlanEstimateTotal){
+                         rec['AcceptedPlanEstimate'] = snap.AcceptedLeafStoryPlanEstimateTotal;
                      }
+                     if (snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]){
+                         rec['parent'] = snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]; 
+                     }
+
                      if (snap.State){
                          rec['State'] = snap.State;
                      }
                      if (snap.ScheduleState){
                          rec['State'] = snap.ScheduleState;
+                         if (snap.ScheduleState == this.AcceptedName){
+                             rec['AcceptedPlanEstimate'] = snap.PlanEstimate; 
+                         }
                      }
                     if (snap.PreliminaryEstimate){
                          rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
@@ -366,6 +358,6 @@ Ext.define("CumulativeFlowCalculator", {
                      data_hash[obj_id] = rec;
              }
          },this);
-         return {data: data_hash, columnCfgs: columnConfigs}; 
+         return {data: data_hash}; 
      }
  });

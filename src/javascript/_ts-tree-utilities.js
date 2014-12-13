@@ -51,12 +51,12 @@ Ext.define('Rally.technicalservices.util.TreeBuilding', {
         var root_array = [];
 
         Ext.Object.each(item_hash, function(oid,item){
+
             if ( !item.children ) { item.children = []; }
             var direct_parent = item.parent;
             if (!direct_parent && !Ext.Array.contains(root_array,item)) {
                 root_array.push(item);
             } else {
-                
                 if (!item_hash[direct_parent]) {
                     this.logger.log("Saved parent missing: ", direct_parent);
                     if ( !Ext.Array.contains(root_array,item) ) {

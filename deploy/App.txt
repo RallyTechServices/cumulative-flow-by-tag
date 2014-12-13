@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 16:13:42 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 19:14:00 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 16:13:42 GMT-0700 (MST)";
-        var CHECKSUM = 44387770363;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 19:14:00 GMT-0700 (MST)";
+        var CHECKSUM = 45354461453;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -332,23 +332,7 @@ Ext.define("CumulativeFlowCalculator", {
          return series; 
      },
      _buildGridStore: function(snapshots){
-         var data = [];
-         var columnConfigs = [
-             {text: 'FormattedID', dataIndex: 'ObjectID', renderer: function(v,m,r){
-                 return r.get('FormattedID');
-             }},
-             {text: 'Name', dataIndex: 'Name', flex: 1},
-//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
-             {text: 'PlanEstimate', dataIndex: 'PlanEstimate'},
-             {text: 'State/ScheduleState', dataIndex: 'ScheduleState'},
-//             {text: 'PortfolioItem', dataIndex: 'PortfolioItem'},
-//             {text: 'State', dataIndex: 'State'},
-//             {text: 'PreliminaryEstimate', dataIndex: 'PreliminaryEstimate'},
-//             {text: 'LeafStoryPlanEstimateTotal', dataIndex: 'LeafStoryPlanEstimateTotal'},
-//             {text: 'PortfolioItemFormattedID', dataIndex: 'PortfolioItem'},
-//             {text: 'AcceptedLeafStoryPlanEstimateTotal', dataIndex: 'AcceptedLeafStoryPlanEstimateTotal'}
-         ]; 
-         
+
          var data_hash = {};  
          Ext.each(snapshots, function(snap){
              if (/^9999/.test(snap._ValidTo)){
@@ -358,6 +342,7 @@ Ext.define("CumulativeFlowCalculator", {
                              "FormattedID":snap.FormattedID,
                              "Name": snap.Name,
                              "PlanEstimate": '',
+                             "AcceptedPlanEstimate": '',
                              "parent": '',
                              "State": '',
                              "PreliminaryEstimate": ''
@@ -366,16 +351,23 @@ Ext.define("CumulativeFlowCalculator", {
                          rec['PlanEstimate'] = snap.PlanEstimate;
                      }
                      if (snap.LeafStoryPlanEstimateTotal){
-                         rec['PlanEstimate'] = Ext.String.format("{0} ({1})",snap.LeafStoryPlanEstimateTotal, Number(snap.AcceptedLeafStoryPlanEstimateTotal));
+                         rec['PlanEstimate'] = snap.LeafStoryPlanEstimateTotal;
                      }
-                     if (snap.PortfolioItem){
-                         rec['parent'] = snap.PortfolioItem; 
+                     if (snap.AcceptedLeafStoryPlanEstimateTotal){
+                         rec['AcceptedPlanEstimate'] = snap.AcceptedLeafStoryPlanEstimateTotal;
                      }
+                     if (snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]){
+                         rec['parent'] = snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]; 
+                     }
+
                      if (snap.State){
                          rec['State'] = snap.State;
                      }
                      if (snap.ScheduleState){
                          rec['State'] = snap.ScheduleState;
+                         if (snap.ScheduleState == this.AcceptedName){
+                             rec['AcceptedPlanEstimate'] = snap.PlanEstimate; 
+                         }
                      }
                     if (snap.PreliminaryEstimate){
                          rec['PreliminaryEstimate'] = this.preliminaryEstimateMap[snap.PreliminaryEstimate];
@@ -383,7 +375,7 @@ Ext.define("CumulativeFlowCalculator", {
                      data_hash[obj_id] = rec;
              }
          },this);
-         return {data: data_hash, columnCfgs: columnConfigs}; 
+         return {data: data_hash}; 
      }
  });
 /**
@@ -562,12 +554,12 @@ Ext.define('Rally.technicalservices.util.TreeBuilding', {
         var root_array = [];
 
         Ext.Object.each(item_hash, function(oid,item){
+
             if ( !item.children ) { item.children = []; }
             var direct_parent = item.parent;
             if (!direct_parent && !Ext.Array.contains(root_array,item)) {
                 root_array.push(item);
             } else {
-                
                 if (!item_hash[direct_parent]) {
                     this.logger.log("Saved parent missing: ", direct_parent);
                     if ( !Ext.Array.contains(root_array,item) ) {
@@ -984,9 +976,10 @@ Ext.define('CustomApp', {
             return; 
         }
 
-        if (this.down('#chart-grid')){
-            this.down('#chart-grid').destroy();
+        if (this.down('#tree-grid')){
+            this.down('#tree-grid').destroy();
         }
+        this.down('#sub_chart_box').removeAll();
         
         var tags = this._getTagObjectIDs(); 
         var pids = this._getPortfolioItemIDs();
@@ -999,19 +992,52 @@ Ext.define('CustomApp', {
             scope:this,
             success: function(data){
                 this.logger.log('_run Success', data);
-                this.portfolioItemIds = this._getPortfolioItemIds(data);
-                this.down('#sub_chart_box').removeAll();
+                if (tags.length > 0){
+                    this._getInheritedPortfolioItemIds(data).then({
+                        scope: this,
+                        success: function(data){
+                            this.logger.log('_getInheritedPortfolioItemIds Success', data);
+                            this.portfolioItemIds = this._getPortfolioItemIds(data);
+                            this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
+                        },
+                        failure: function(error){
+                            alert(error);
+                        }
+                    });
+                } else {
+                    this.portfolioItemIds = this._getPortfolioItemIds(data);
+                    this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
+                }
                 
-                this._createChart(this.portfolioItemIds,project_id, project_name, container_id, chart_id);
             },
             failure: function(error, success){
                 alert(error);
             }
         });
     },
-    _getPortfolioItemIds: function(data){
+    _getInheritedPortfolioItemIds: function(data){
+        var deferred = Ext.create('Deft.Deferred');
+        var pids = []; 
+        
+        Ext.each(data, function(d){
+            pids.push(d.get('ObjectID'));
+        }, this);
+        
+        this._fetchPortfolioItemData([], pids).then({
+            scope: this,
+            success: function(data){
+                deferred.resolve(data);
+            },
+            failure: function(error){
+                deferred.reject('_getInheritedPortfolioItemIds: ' + error);
+            }
+        });
+        return deferred; 
+    },
+    _getPortfolioItemIds: function(data, tags){
         //Now parse through the data to get the portfolio item object ids that we want
         var pids = [];
+        
         Ext.each(data, function(d){
             var pi_type = d.get('_TypeHierarchy').slice(-1)[0];
             if (pi_type == this._getLowestLevelPortfolioItemType()){
@@ -1158,14 +1184,15 @@ Ext.define('CustomApp', {
     
     _getStoreConfig: function(portfolioItemObjectIds, projectID){
         this.logger.log('_getStoreConfig', portfolioItemObjectIds);
+        var lowest_pi = this._getLowestLevelPortfolioItemType();
         return {
             find: {
-                _TypeHierarchy: {$in: ['HierarchicalRequirement', this._getLowestLevelPortfolioItemType()]},
+                _TypeHierarchy: {$in: ['HierarchicalRequirement', lowest_pi]},
                 Children: null,
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal'],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal',lowest_pi],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
@@ -1204,8 +1231,11 @@ Ext.define('CustomApp', {
                 dataIndex: 'Name',
                 flex: 1
         },{
-            text: 'PlanEstimate (Points Accepted)',
+            text: 'PlanEstimate',
             dataIndex: 'PlanEstimate',
+        },{
+            text: 'Accepted PlanEstimate',
+            dataIndex: 'AcceptedPlanEstimate'
         },{
             text: 'State',
             dataIndex: 'State',
@@ -1240,6 +1270,7 @@ Ext.define('CustomApp', {
         this.down('#grid_box').add({
             xtype: 'treepanel',
             width: "90%",
+            itemId: 'tree-grid',
             store: tree_store,
             cls: 'rally-grid',
             rootVisible: false,
