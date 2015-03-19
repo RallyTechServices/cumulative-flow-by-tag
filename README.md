@@ -1,69 +1,38 @@
-#Cumulative Flow by Tags
+#Cumulative Flow by Tags  (SDK 2.0rc3)
 
-## Development Notes
+Shows the cumulative flow for stories associated either with a single portfolio item or a set of tags (or combination of both) for the selected timebox.
 
-### First Load
+Timebox is determined by the selected portfolio item Planned Start Date and Planned End Date.  A portfolio item must be selected in order to define the planned start and end dates, even if the cumulative flow diagram is not limited to the portfolio item hierarchy.
 
-If you've just downloaded this from github and you want to do development, 
-you're going to need to have these installed:
+If the Restrict to Portfolio Item hierarchy is selected, then tags are optional.  If the Restrict to Portfolio Item hierarchy is not selected, then the user must select at least 1 tag.
 
- * node.js
- * grunt-cli
- * grunt-init
- 
-Since you're getting this from github, we assume you have the command line
-version of git also installed.  If not, go get git.
+Given the criteria of selected portfolio item (if hierarchy is restricted) and\or selected tags, the app first fetches all lowest level portfolio items (aka Features) associated with the criteria as of the current date.
 
-If you have those three installed, just type this in the root directory here
-to get set up to develop:
+The data set for the cumulative flow includes all stories associated with the resulting collection of lowest level portfolio items.
 
-  npm install
+The cumulative flow is calculated using the TimeSeriesCalculator.
 
-### Structure
+Additional calculations are:
 
-  * src/javascript:  All the JS files saved here will be compiled into the 
-  target html file
-  * src/style: All of the stylesheets saved here will be compiled into the 
-  target html file
-  * test/fast: Fast jasmine tests go here.  There should also be a helper 
-  file that is loaded first for creating mocks and doing other shortcuts
-  (fastHelper.js) **Tests should be in a file named <something>-spec.js**
-  * test/slow: Slow jasmine tests go here.  There should also be a helper
-  file that is loaded first for creating mocks and doing other shortcuts 
-  (slowHelper.js) **Tests should be in a file named <something>-spec.js**
-  * templates: This is where templates that are used to create the production
-  and debug html files live.  The advantage of using these templates is that
-  you can configure the behavior of the html around the JS.
-  * config.json: This file contains the configuration settings necessary to
-  create the debug and production html files.  Server is only used for debug,
-  name, className and sdk are used for both.
-  * package.json: This file lists the dependencies for grunt
-  * auth.json: This file should NOT be checked in.  Create this to run the
-  slow test specs.  It should look like:
-    {
-        "username":"you@company.com",
-        "password":"secret"
-    }
-  
-### Usage of the grunt file
-####Tasks
-    
-##### grunt debug
+The totalEstimated series is calculated by taking the maximum of the following:
+[PortfolioItem]LeafPlanEstimateTotal or [PortfolioItem]DerivedPreliminaryEstimate
 
-Use grunt debug to create the debug html file.  You only need to run this when you have added new files to
-the src directories.
+The DerivedPreliminaryEstimate is the sum of the FeaturePreliminary estimates converted to their quantitative values.
 
-##### grunt build
+Additional trendlines on the chart are:
+Actual - Starts at 0 on the date the first story went into an In-Progress state and to the total accepted points on the current date or the end of the date range.
+Ideal - Starts at 0 on the PlannedStartDate and extends to the total points on the PlannedEndDate.
+Remaining - If the current date is within the selected timebox, then the remaining line is drawn using from an arbitrary point before the current date to the plannedEndDate.
+The remaining line has a slope calculated as follows:  deltaPoints/deltaDays
+where:
+    deltaPoints = totalPoints-acceptedPoints (as of current date)
+    deltaDays = plannedEndDate - currentDate
 
-Use grunt build to create the production html file.  We still have to copy the html file to a panel to test.
+![ScreenShot](/images/cumulative-flow-by-tag.png)
 
-##### grunt test-fast
 
-Use grunt test-fast to run the Jasmine tests in the fast directory.  Typically, the tests in the fast 
-directory are more pure unit tests and do not need to connect to Rally.
-
-##### grunt test-slow
-
-Use grunt test-slow to run the Jasmine tests in the slow directory.  Typically, the tests in the slow
-directory are more like integration tests in that they require connecting to Rally and interacting with
-data.
+To upgrade this app to use milestones instead of tags, we will need to do the following:
+*  Upgrade to SDK 2.0 since Milestones are better supported in the new SDK
+*  Replace\add Milestone selection drop down
+*  Update the retrieval of the PortfolioItem ids in the app.js file to include filtering\querying by Milestone
+*  Calculator and grid should not need to be modified.
