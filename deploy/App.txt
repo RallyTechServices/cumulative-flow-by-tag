@@ -3,11 +3,11 @@
 <head>
     <title>Cumulative Flow by Tags</title>
     <!--  (c) 2014 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 12 2014 19:14:00 GMT-0700 (MST) -->
+    <!--  Build Date: Fri Dec 12 2014 19:53:58 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 12 2014 19:14:00 GMT-0700 (MST)";
-        var CHECKSUM = 45354461453;
+        var APP_BUILD_DATE = "Fri Dec 12 2014 19:53:58 GMT-0700 (MST)";
+        var CHECKSUM = 46606466518;
     </script>
     
     <script type="text/javascript" src="/apps/2.0rc3/sdk.js"></script>
@@ -331,12 +331,31 @@ Ext.define("CumulativeFlowCalculator", {
          });
          return series; 
      },
+     _getPortfolioItemAncestorOid: function(snap, pids){
+         if (snap.PortfolioItem) {
+             return snap.PortfolioItem;  
+         }
+         for (var i=snap._ItemHierarchy.length; i > 0; i--){
+             if (Ext.Array.contains(pids, snap._ItemHierarchy[i])){
+                 return snap._ItemHierarchy[i];
+             }
+         }
+     },
      _buildGridStore: function(snapshots){
 
          var data_hash = {};  
+         var pids = [];  
+         Ext.each(snapshots, function(snap){
+             var type = snap._TypeHierarchy.slice(-1)[0];  
+             if (/^PortfolioItem/.test(type) && !Ext.Array.contains(pids, snap.ObjectID)){
+                 pids.push(snap.ObjectID);
+             }
+         },this);
+         
          Ext.each(snapshots, function(snap){
              if (/^9999/.test(snap._ValidTo)){
-                   var obj_id = snap.ObjectID
+                   var obj_id = snap.ObjectID;
+                   var type = snap._TypeHierarchy.slice(-1)[0];  
                    var rec = { 
                              "ObjectID": snap.ObjectID,
                              "FormattedID":snap.FormattedID,
@@ -356,10 +375,9 @@ Ext.define("CumulativeFlowCalculator", {
                      if (snap.AcceptedLeafStoryPlanEstimateTotal){
                          rec['AcceptedPlanEstimate'] = snap.AcceptedLeafStoryPlanEstimateTotal;
                      }
-                     if (snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]){
-                         rec['parent'] = snap.PortfolioItem || snap[this.lowestLevelPortfolioItemType]; 
+                     if (type == 'HierarchicalRequirement'){
+                         rec['parent'] = this._getPortfolioItemAncestorOid(snap,pids);
                      }
-
                      if (snap.State){
                          rec['State'] = snap.State;
                      }
@@ -1192,7 +1210,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal',lowest_pi],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal','_ItemHierarchy'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {

@@ -4,15 +4,10 @@ Ext.define('CustomApp', {
     logger: new Rally.technicalservices.Logger(),
     items: [
        {xtype:'container',itemId:'control_box',layout: {type:'hbox'}, padding: 10},
-//       {xtype:'container',itemId:'summary_box',layout: {type:'vbox'}, 
-//                     padding: 10, 
-//                     tpl: '{Msg} % of Total Points Completed',
-//                     emptyText: '',
-//                     flex: 1},
-        {xtype:'container',itemId:'display_box'},
-        {xtype:'container',itemId:'sub_chart_box',layout: {type: 'hbox'}},
-        {xtype:'container', itemId: 'grid_box'},
-        {xtype:'tsinfolink'}
+       {xtype:'container',itemId:'display_box'},
+       {xtype:'container',itemId:'sub_chart_box',layout: {type: 'hbox'}},
+       {xtype:'container', itemId: 'grid_box'},
+       {xtype:'tsinfolink'}
     ],
     /*
      * preliminaryEstimateMap:  Hash maps PreliminaryEstimate ObjectIDs to corresponding values
@@ -498,7 +493,7 @@ Ext.define('CustomApp', {
                 _ProjectHierarchy: projectID, 
                 _ItemHierarchy: {$in: portfolioItemObjectIds}
              },
-            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal',lowest_pi],
+            fetch: ['FormattedID','Name','ScheduleState','PlanEstimate','Parent','_TypeHierarchy','_ValidTo','_ValidFrom','PreliminaryEstimate','State','LeafStoryPlanEstimateTotal','PortfolioItem','AcceptedLeafStoryPlanEstimateTotal','_ItemHierarchy'],
             hydrate: ['ScheduleState','_TypeHierarchy','State'],
             compress: true,
             sort: {
